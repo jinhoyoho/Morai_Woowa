@@ -17,9 +17,13 @@ find_package(catkin REQUIRED COMPONENTS
   pcl_conversions
   cv_bridge
   image_transport
+
 )
 
 find_package(OpenCV REQUIRED)
+
+##from sanghun
+find_package(PCL REQUIRED)
 
 ## Generate messages in the 'msg' folder
 add_message_files(
@@ -90,6 +94,8 @@ include_directories(
  include
  ${catkin_INCLUDE_DIRS}
  ${OpenCV_INCLUDE_DIRS}
+ ##from sanghun
+ ${PCL_INCLUDE_DIRS}
 )
 
 ## Declare a C++ library
@@ -108,6 +114,19 @@ include_directories(
 
 add_executable(calibration src/calibration.cpp src/LiDAR_pre.cpp)
 target_link_libraries(calibration ${catkin_LIBRARIES} ${OpenCV_LIBS})
+
+
+##from sanghun
+add_executable(lidar_db src/lidar_db.cpp)
+target_link_libraries(lidar_db
+  ${catkin_LIBRARIES}
+  ${PCL_LIBRARIES}
+)
+add_executable(obstacle_tracking src/obstacle_tracking.cpp)
+target_link_libraries(obstacle_tracking
+  ${catkin_LIBRARIES}
+  ${PCL_LIBRARIES}
+)
 
 ## Rename C++ executable without prefix
 ## The above recommended prefix causes long target names, the following renames the
