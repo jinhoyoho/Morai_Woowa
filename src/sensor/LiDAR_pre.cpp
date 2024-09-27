@@ -6,7 +6,7 @@ LiDAR_pre::LiDAR_pre()
 {
     ros::NodeHandle nh;
     point_sub_ = nh.subscribe("velodyne_points", 1, &LiDAR_pre::cloud_callBack, this);
-    pub = nh.advertise<sensor_msgs::PointCloud2> ("output", 1);
+    pub = nh.advertise<sensor_msgs::PointCloud2> ("lidar_pre", 1);
 }
 
 // Pointer -> PointCloud2로 변경하는 함수
@@ -19,6 +19,9 @@ void LiDAR_pre::Pub2Sensor(pcl::PointCloud<pcl::PointXYZI>::Ptr pcl_pointer)
     sensor_msgs::PointCloud2 output;
 
     pcl_conversions::fromPCL(pcl_pc_filtered, output);
+
+    output.header.frame_id = "map";
+    output.header.stamp = ros::Time::now();
 
     pub.publish(output);
 }
@@ -33,6 +36,9 @@ void LiDAR_pre::Pub2Sensor(pcl::PointCloud<pcl::PointXYZI> pc2)
     sensor_msgs::PointCloud2 output;
 
     pcl_conversions::fromPCL(pcl_pc_filtered, output);
+
+    output.header.frame_id = "map";
+    output.header.stamp = ros::Time::now();
 
     pub.publish(output);
 }
