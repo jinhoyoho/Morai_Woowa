@@ -6,7 +6,8 @@ import numpy as np
 import os, rospkg
 
 from sensor_msgs.msg import CompressedImage
-from cv_bridge import CvBridgeError
+from sensor_msgs.msg import Image
+from cv_bridge import CvBridgeError, CvBridge
 from ultralytics import YOLO
 
 from Morai_Woowa.msg import obj_info
@@ -16,11 +17,20 @@ class IMGParser:
     def __init__(self):
         rospy.init_node('image_parser', anonymous=True)
         self.image_sub = rospy.Subscriber("/image_jpeg/compressed", CompressedImage, self.callback)
+        self.image_pub = rospy.Publisher('python_image', Image, queue_size=10)
         self.is_image = False
+        self.br = CvBridge()
 
-        model = YOLO("yolov10n.pt")
+        # file의 directory 경로
+        current_dir = os.path.dirname(os.path.abspath(__file__))
+        model_path = os.path.join(current_dir, "yolov10n.pt")
+
+        # YOLO 모델을 현재 경로에서 불러옵니다.
+        model = YOLO(model_path)
+
 
         rate = rospy.Rate(30)
+
         while not rospy.is_shutdown():
             os.system('clear')
             if not self.is_image:
@@ -58,6 +68,10 @@ class IMGParser:
                 if cv2.waitKey(1) == ord('q'):
                     break
                 print(f"Caemra sensor was connected !")
+
+                # publish image
+                self.image_pub.publish(self.br.cv2_to_imgmsg(self.img_bgr))
+
 
             rate.sleep()
 

@@ -15,7 +15,11 @@ find_package(catkin REQUIRED COMPONENTS
   message_generation
   pcl_ros
   pcl_conversions
+  cv_bridge
+  image_transport
 )
+
+find_package(OpenCV REQUIRED)
 
 ## Generate messages in the 'msg' folder
 add_message_files(
@@ -85,6 +89,7 @@ catkin_package(
 include_directories(
  include
  ${catkin_INCLUDE_DIRS}
+ ${OpenCV_INCLUDE_DIRS}
 )
 
 ## Declare a C++ library
@@ -100,6 +105,9 @@ include_directories(
 
 add_executable(Lidarp src/LiDAR_pre.cpp)
 target_link_libraries(Lidarp ${catkin_LIBRARIES})
+
+add_executable(calibration src/calibration.cpp)
+target_link_libraries(calibration ${catkin_LIBRARIES} ${OpenCV_LIBS})
 
 ## Rename C++ executable without prefix
 ## The above recommended prefix causes long target names, the following renames the

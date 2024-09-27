@@ -5,7 +5,9 @@
 #include <pcl/point_cloud.h>
 #include <pcl/point_types.h>
 #include <pcl_conversions/pcl_conversions.h>
+
 #include <pcl/filters/passthrough.h>    // roi
+#include <pcl/filters/statistical_outlier_removal.h> // outlier
 #include <pcl/filters/voxel_grid.h>     // voxel
 // ransac
 #include <pcl/sample_consensus/method_types.h>
@@ -14,8 +16,6 @@
 #include <pcl/filters/extract_indices.h>
 #include <pcl/ModelCoefficients.h>
 
-// outlier
-#include <pcl/filters/statistical_outlier_removal.h>
 
 class LiDAR_pre
 {
@@ -27,7 +27,7 @@ public:
 
     // overload
     // Pointer를 Sensor msgs로 바꾸는 함수
-    void Pub2Sensor( pcl::PointCloud<pcl::PointXYZI>::Ptr pcl_pointer);
+    void Pub2Sensor(pcl::PointCloud<pcl::PointXYZI>::Ptr pcl_pointer);
     // PC2를 Sensor msgs로 바꾸는 함수
     void Pub2Sensor(pcl::PointCloud<pcl::PointXYZI> pc2);
     
@@ -41,7 +41,8 @@ public:
 private:
     // const sensor_msgs::PointCloud2ConstPtr& input;
     ros::Subscriber point_sub_;
-    pcl::PCLPointCloud2 pcl_pc;
     ros::Publisher pub;
+    
+    pcl::PCLPointCloud2 pcl_pc;
     pcl::PointCloud<pcl::PointXYZI> cloud_data; // pointCloud를 받아서 PointXYZI로 변환
 };
