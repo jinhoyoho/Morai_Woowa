@@ -7,6 +7,8 @@
 #include <opencv2/highgui/highgui.hpp>
 #include <cv_bridge/cv_bridge.h>
 
+#include <opencv2/opencv.hpp>
+
 
 using Eigen::MatrixXd;
 
@@ -16,6 +18,7 @@ private:
     sensor_msgs::PointCloud2 lidar;
     ros::Subscriber image_sub;
     ros::Publisher pub;
+    cv::Mat frame;
 
 public:
     calibration();

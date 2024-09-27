@@ -103,10 +103,10 @@ include_directories(
 # add_dependencies(${PROJECT_NAME} ${${PROJECT_NAME}_EXPORTED_TARGETS} ${catkin_EXPORTED_TARGETS})
 
 
-add_executable(Lidarp src/LiDAR_pre.cpp)
-target_link_libraries(Lidarp ${catkin_LIBRARIES})
+# add_executable(Lidarp src/LiDAR_pre.cpp)
+# target_link_libraries(Lidarp ${catkin_LIBRARIES})
 
-add_executable(calibration src/calibration.cpp)
+add_executable(calibration src/calibration.cpp src/LiDAR_pre.cpp)
 target_link_libraries(calibration ${catkin_LIBRARIES} ${OpenCV_LIBS})
 
 ## Rename C++ executable without prefix

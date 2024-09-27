@@ -28,7 +28,6 @@ class IMGParser:
         # YOLO 모델을 현재 경로에서 불러옵니다.
         model = YOLO(model_path)
 
-
         rate = rospy.Rate(30)
 
         while not rospy.is_shutdown():
@@ -62,11 +61,12 @@ class IMGParser:
                         self.img_bgr = cv2.rectangle(self.img_bgr, (left, bottom), (right, top), (0,0,255),2)
                     
 
-                cv2.imshow("Image window", self.img_bgr)
+                # cv2.imshow("Image window", self.img_bgr)
                 
                 
-                if cv2.waitKey(1) == ord('q'):
-                    break
+                # if cv2.waitKey(1) == ord('q'):
+                #     break
+
                 print(f"Caemra sensor was connected !")
 
                 # publish image

@@ -138,12 +138,12 @@ void LiDAR_pre::ransac()
 }
 
 
-int main(int argc, char** argv)
-{
-    ros::init(argc, argv, "LiDAR_preprocessing");
+// int main(int argc, char** argv)
+// {
+//     ros::init(argc, argv, "LiDAR_preprocessing");
 
-    LiDAR_pre lp;
+//     LiDAR_pre lp;
 
-    ros::spin();
-    return 0;
-}
+//     ros::spin();
+//     return 0;
+// }
