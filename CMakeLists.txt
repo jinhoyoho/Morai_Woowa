@@ -17,7 +17,9 @@ find_package(catkin REQUIRED COMPONENTS
   pcl_conversions
   cv_bridge
   image_transport
-
+  sensor_msgs
+  geometry_msgs
+  tf  # tf 라이브러리 추가
 )
 
 find_package(OpenCV REQUIRED)
@@ -112,21 +114,29 @@ include_directories(
 # add_executable(Lidarp src/LiDAR_pre.cpp)
 # target_link_libraries(Lidarp ${catkin_LIBRARIES})
 
-add_executable(calibration src/calibration.cpp src/LiDAR_pre.cpp)
+add_executable(calibration src/sensor/calibration.cpp src/sensor/LiDAR_pre.cpp)
 target_link_libraries(calibration ${catkin_LIBRARIES} ${OpenCV_LIBS})
 
 
 ##from sanghun
-add_executable(lidar_db src/lidar_db.cpp)
+add_executable(lidar_db src/planning/lidar_db.cpp)
 target_link_libraries(lidar_db
   ${catkin_LIBRARIES}
   ${PCL_LIBRARIES}
 )
-add_executable(obstacle_tracking src/obstacle_tracking.cpp)
+add_executable(obstacle_tracking src/planning/obstacle_tracking.cpp)
 target_link_libraries(obstacle_tracking
   ${catkin_LIBRARIES}
   ${PCL_LIBRARIES}
 )
+
+##from jimin
+add_executable(localization src/sensor/localization.cpp)
+target_link_libraries(localization ${catkin_LIBRARIES} proj)
+add_executable(waypoint_saver src/sensor/waypoint_saver.cpp)
+target_link_libraries(waypoint_saver ${catkin_LIBRARIES})
+add_executable(state_node src/sensor/state_node.cpp)
+target_link_libraries(state_node ${catkin_LIBRARIES})
 
 ## Rename C++ executable without prefix
 ## The above recommended prefix causes long target names, the following renames the
