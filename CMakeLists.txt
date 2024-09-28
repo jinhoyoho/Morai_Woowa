@@ -64,7 +64,6 @@ include_directories(
 )
 
 add_executable(calibration src/sensor/calibration.cpp src/sensor/LiDAR_pre.cpp)
-add_executable(calibration src/sensor/calibration.cpp src/sensor/LiDAR_pre.cpp)
 target_link_libraries(calibration ${catkin_LIBRARIES} ${OpenCV_LIBS})
 
 
