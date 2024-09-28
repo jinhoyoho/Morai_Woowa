@@ -21,6 +21,7 @@ find_package(catkin REQUIRED COMPONENTS
 
 find_package(OpenCV REQUIRED)
 
+
 ## Generate messages in the 'msg' folder
 add_message_files(
   FILES
@@ -92,21 +93,7 @@ include_directories(
  ${OpenCV_INCLUDE_DIRS}
 )
 
-## Declare a C++ library
-# add_library(${PROJECT_NAME}
-#   src/${PROJECT_NAME}/Morai_Woowa.cpp
-# )
-
-## Add cmake target dependencies of the library
-## as an example, code may need to be generated before libraries
-## either from message generation or dynamic reconfigure
-# add_dependencies(${PROJECT_NAME} ${${PROJECT_NAME}_EXPORTED_TARGETS} ${catkin_EXPORTED_TARGETS})
-
-
-# add_executable(Lidarp src/LiDAR_pre.cpp)
-# target_link_libraries(Lidarp ${catkin_LIBRARIES})
-
-add_executable(calibration src/calibration.cpp src/LiDAR_pre.cpp)
+add_executable(calibration src/sensor/calibration.cpp src/sensor/LiDAR_pre.cpp)
 target_link_libraries(calibration ${catkin_LIBRARIES} ${OpenCV_LIBS})
 
 ## Rename C++ executable without prefix
