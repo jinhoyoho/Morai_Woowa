@@ -8,6 +8,7 @@
 #include <cv_bridge/cv_bridge.h>
 
 #include <opencv2/opencv.hpp>
+#include <opencv2/calib3d.hpp>
 
 
 using Eigen::MatrixXd;
@@ -33,13 +34,11 @@ double lidar_x = 0.1;
 double lidar_y = 0.0;
 double lidar_z = 0.739;
 
+// 카메라와 라이다의 각도(degree)
 double camera_roll = 0.0;
 double camera_pitch = 0.0;
 double camera_yaw = 0.0;
 
-double lidar_roll = 0.0;
-double lidar_pitch = 0.0;
-double lidar_yaw = 0.0;
 
 class calibration
 {
@@ -50,16 +49,21 @@ private:
     ros::Publisher pub;
     
     cv::Mat frame;  // 이미지
-    Eigen::MatrixXd lidar_points;   // 라이다
+    std::vector<cv::Point3f> lidar_points;   // 라이다
     
     Eigen::Matrix3d intrinsic;  // 카메라 내부 파라미터 3x3
     Eigen::Matrix<double, 3, 4> extrinsic;  // 외부 파라미터 3x4
-    Eigen::Matrix<double, 3, 4> combined_matrix; // intrisic x extrinsic
+    Eigen::Matrix<double, 3, 4> combined_matrix; // intrinsic x extrinsic
 
     Eigen::Vector3d camera_origin; // 카메라 원점
     Eigen::Vector3d lidar_origin; // 라이다 원점
 
     // Eigen::MatrixXd result; // 투영시킨 결과 좌표
+
+    cv::Mat cameraMatrix;
+    cv::Mat rvec;
+    cv::Mat tvec;
+    cv::Mat distCoeffs;
 
 
 
