@@ -1,10 +1,13 @@
 #include <ros/ros.h>
+#include <ros/package.h>  
 #include <geometry_msgs/Pose2D.h>
 #include <vector>
 #include <fstream>
 #include <sstream>
 #include <cmath>
 #include <limits>
+#include <string>
+#include <filesystem>
 
 struct Waypoint {
     double x;
@@ -16,15 +19,23 @@ struct Waypoint {
 class StateNode {
 public:
     StateNode() : closest_index_(-1) {
+
+        // path폴더안에 path파일 이름!!!!!
+        std::string filename = "test_path.csv";
+        //ros::param::get("~waypoint_file_name", filename); 
+
+        std::string current_path = ros::package::getPath("Morai_Woowa"); // 패키지 경로를 가져옵니다
+        waypoint_file_ = current_path + "/path/" + filename;
+
         current_pose_sub_ = nh_.subscribe("/current_pose", 10, &StateNode::currentPoseCallback, this);
-        ros::param::get("~waypoint_file", waypoint_file_);  // 매개변수에서 파일 경로를 읽음
         loadWaypoints();  // waypoint 파일에서 로드
     }
 
     void currentPoseCallback(const geometry_msgs::Pose2D::ConstPtr& msg) {
         closest_index_ = findClosestWaypoint(msg->x, msg->y, closest_index_);
-        if (closest_index_ >= 0) {
+        if (closest_index_ != 0) {
             ROS_INFO("Current Position: (X: %.2f, Y: %.2f) is nearest to Waypoint Index: %d", msg->x, msg->y, closest_index_);
+            ROS_INFO("cross_track_error: %lf", cross_track_error);
         } else {
             ROS_WARN("No waypoints available.");
         }
@@ -35,21 +46,44 @@ private:
     ros::Subscriber current_pose_sub_;
     std::vector<Waypoint> waypoints_;
     std::string waypoint_file_;
-    int closest_index_;
+    int closest_index_ = 0;
+    double cross_track_error = 10000000; 
+
+    bool wpt_init_flag = false;
 
     void loadWaypoints() {
+        
+        int cnt = 0;
+
         std::ifstream file(waypoint_file_);
         if (file.is_open()) {
             Waypoint wp;
-            while (file >> wp.index) {
-                char comma;  // CSV를 읽기 위해 필요한 변수
-                file >> comma; // Skip comma
-                file >> wp.x;
-                file >> comma; // Skip comma
-                file >> wp.y;
-                file >> comma; // Skip comma
-                file >> wp.heading;
+            std::string line;
+
+            // CSV 파일의 각 줄을 읽음
+            while (std::getline(file, line)) {
+
+                if (cnt == 0) {
+                    // 첫 줄은 데이터 프레임
+                    cnt ++;
+                    continue;
+                }
+
+                std::istringstream ss(line);
+                std::string token;
+
+                std::getline(ss, token, ','); // x
+                wp.x = std::stod(token);
+                std::getline(ss, token, ','); // y
+                wp.y = std::stod(token);
+                std::getline(ss, token, ','); // heading
+                wp.heading = std::stod(token);
+                std::getline(ss, token, ','); // index
+                wp.index = std::stoi(token);
+                
                 waypoints_.push_back(wp);
+
+                cnt ++;
             }
             file.close();
             ROS_INFO("Loaded waypoints from %s", waypoint_file_.c_str());
@@ -59,6 +93,28 @@ private:
     }
 
     int findClosestWaypoint(double x, double y, int previous_index) {
+
+        // 처음엔 모든 wpt를 돌면서 위치 체크
+        if(!wpt_init_flag){
+            int closest_index = -1;
+            double min_distance = std::numeric_limits<double>::max();
+
+            for (int i = 0; i < waypoints_.size(); i++) {
+                const auto& wp = waypoints_[i];
+                double distance = calculateDistance(x, y, wp.x, wp.y);
+                if (distance < min_distance) {
+                    min_distance = distance;
+                    closest_index = wp.index;
+                    cross_track_error = min_distance;
+                }
+            }
+
+            wpt_init_flag = true;
+
+            return closest_index;
+        }
+
+        // 이후부터는 연산량을 위해 이전 wpt 앞뒤로 5개 점만 보고 가까운 idx찾기
         int start_index = std::max(previous_index - 5, 0);
         int end_index = std::min(previous_index + 5, static_cast<int>(waypoints_.size()) - 1);
 
@@ -66,11 +122,13 @@ private:
         double min_distance = std::numeric_limits<double>::max();
 
         for (int i = start_index; i <= end_index; ++i) {
+
             const auto& wp = waypoints_[i];
             double distance = calculateDistance(x, y, wp.x, wp.y);
             if (distance < min_distance) {
                 min_distance = distance;
                 closest_index = wp.index;
+                cross_track_error = min_distance;
             }
         }
 

@@ -131,10 +131,6 @@ target_link_libraries(obstacle_tracking
 )
 
 ##from jimin
-add_executable(localization src/sensor/localization.cpp)
-target_link_libraries(localization ${catkin_LIBRARIES} proj)
-add_executable(waypoint_saver src/sensor/waypoint_saver.cpp)
-target_link_libraries(waypoint_saver ${catkin_LIBRARIES})
 add_executable(state_node src/sensor/state_node.cpp)
 target_link_libraries(state_node ${catkin_LIBRARIES})
 
