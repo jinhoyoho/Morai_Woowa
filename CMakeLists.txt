@@ -81,6 +81,6 @@ target_link_libraries(obstacle_tracking
 )
 
 ##from jimin
-add_executable(state_node src/sensor/state_node.cpp)
+add_executable(state_node src/state_node.cpp)
 target_link_libraries(state_node ${catkin_LIBRARIES})
 

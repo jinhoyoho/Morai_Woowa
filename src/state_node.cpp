@@ -8,6 +8,7 @@
 #include <limits>
 #include <string>
 #include <filesystem>
+#include <thread>  // 스레드 사용을 위한 헤더
 
 struct Waypoint {
     double x;
@@ -33,11 +34,22 @@ public:
 
     void currentPoseCallback(const geometry_msgs::Pose2D::ConstPtr& msg) {
         closest_index_ = findClosestWaypoint(msg->x, msg->y, closest_index_);
-        if (closest_index_ != 0) {
+        if (closest_index_ != -1) {
             ROS_INFO("Current Position: (X: %.2f, Y: %.2f) is nearest to Waypoint Index: %d", msg->x, msg->y, closest_index_);
             ROS_INFO("cross_track_error: %lf", cross_track_error);
         } else {
             ROS_WARN("No waypoints available.");
+        }
+    }
+
+    // 여기가 메인 state 함수임!!
+    void state() {
+        ros::Rate rate(100);  // 0.01 Hz
+        while (ros::ok()) {
+
+            ROS_INFO("closest_index: %d", closest_index_);
+
+            rate.sleep();  // 지정된 주기로 대기
         }
     }
 
@@ -143,8 +155,15 @@ private:
 int main(int argc, char** argv) {
     ros::init(argc, argv, "state_node");
 
-    StateNode state_node;
+    StateNode StateNode;
+
+    std::thread thread(&StateNode::state, &StateNode);
+
+    ros::spin();  // ROS 이벤트 루프 실행
+
+    thread.join();  // 스레드가 종료될 때까지 대기
 
     ros::spin();
+
     return 0;
 }
