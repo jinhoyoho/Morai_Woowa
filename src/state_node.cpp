@@ -159,8 +159,6 @@ int main(int argc, char** argv) {
 
     std::thread thread(&StateNode::state, &StateNode);
 
-    ros::spin();  // ROS 이벤트 루프 실행
-
     thread.join();  // 스레드가 종료될 때까지 대기
 
     ros::spin();
