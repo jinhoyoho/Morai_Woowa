@@ -47,6 +47,8 @@ public:
         ros::Rate rate(100);  // 0.01 Hz
         while (ros::ok()) {
 
+            ////// 여기다 실행할 함수 //////
+
             ROS_INFO("closest_index: %d", closest_index_);
 
             rate.sleep();  // 지정된 주기로 대기
