@@ -12,7 +12,6 @@ from ultralytics import YOLO
 
 from Morai_Woowa.msg import obj_info
 
-
 class IMGParser:
     def __init__(self):
         rospy.init_node('image_parser', anonymous=True)
