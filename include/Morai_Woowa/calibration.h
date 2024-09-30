@@ -10,9 +10,6 @@
 #include <opencv2/opencv.hpp>
 #include <opencv2/calib3d.hpp>
 
-
-using Eigen::MatrixXd;
-
  // focal length
 double fx = 320.0;
 double fy = 320.0;
@@ -49,7 +46,8 @@ private:
     ros::Publisher pub;
     
     cv::Mat frame;  // 이미지
-    std::vector<cv::Point3f> lidar_points;   // 라이다
+    // std::vector<cv::Point3f> lidar_points;   // 라이다
+    Eigen::MatrixXd lidar_points;   // 라이다
     
     Eigen::Matrix3d intrinsic;  // 카메라 내부 파라미터 3x3
     Eigen::Matrix<double, 3, 4> extrinsic;  // 외부 파라미터 3x4
