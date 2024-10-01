@@ -7,40 +7,44 @@
 #include <pcl/point_cloud.h>
 #include <pcl/point_types.h>
 #include <pcl_conversions/pcl_conversions.h>
-#include <pcl/filters/voxel_grid.h>
-#include <pcl/filters/passthrough.h>
-#include <pcl/registration/icp.h>
+#include <pcl/kdtree/kdtree_flann.h>
 #include <vector>
 #include <std_msgs/Header.h>
 #include <cmath>
 
+//2024 09 29 원래 icp로 장애물 추적하려고 했는데 장애물 모양이 계속 달라져서 추적하기 어려움 -> 다시 확인해보니 추적은 되는데 한 프레임만으로 움직임을 정하는게 어려움, 오차가 꽤 큼. 그래서 10프레임을 모아서 정해야겠다
+//2024 10 01 obstacle topic에 장애물 정보 publish x:x좌표, y:y좌표, z:x방향속도, i:y방향속도 + tracking 초기에 낮은 속도가 나오던 버그 수정
+
 pcl::PointCloud<pcl::PointXYZI>::Ptr cloud_ptr(new pcl::PointCloud<pcl::PointXYZI>());
-pcl::PointCloud<pcl::PointXYZI>::Ptr ex_cloud_ptr(new pcl::PointCloud<pcl::PointXYZI>());
-pcl::PointCloud<pcl::PointXYZ>::Ptr centered_point_ptr(new pcl::PointCloud<pcl::PointXYZ>());
+pcl::PointCloud<pcl::PointXYZ>::Ptr center_points_ptr(new pcl::PointCloud<pcl::PointXYZ>());
 pcl::PointCloud<pcl::PointXYZ>::Ptr translation_ptr(new pcl::PointCloud<pcl::PointXYZ>());
-auto centered_point_msg_ptr = std::make_shared<sensor_msgs::PointCloud2>();
+pcl::PointCloud<pcl::PointXYZI>::Ptr obstacle_ptr(new pcl::PointCloud<pcl::PointXYZI>());
+
+auto cloud_msg_ptr = std::make_shared<sensor_msgs::PointCloud2>();
+auto obstacle_msg_ptr = std::make_shared<sensor_msgs::PointCloud2>();
 auto arrow_array_ptr = std::make_shared<visualization_msgs::MarkerArray>();
 auto clusters_ptr = std::make_shared<std::vector<pcl::PointCloud<pcl::PointXYZI>>>();
+auto center_points_history_ptr = std::make_shared<std::vector<pcl::PointCloud<pcl::PointXYZ>>>();
 
 void cluster_callback(const sensor_msgs::PointCloud2::ConstPtr& msg);
+pcl::PointXYZ get_center(pcl::PointCloud<pcl::PointXYZI>::Ptr cloud_ptr);
 void tracking();
 void make_arrows();
+void make_obstacle_msg();
 void removeSmallClusters();
 
 int main(int argc, char **argv){
     ros::init(argc, argv, "obstacle_tracking");
     ros::NodeHandle nh;
     ros::Subscriber cluster_sub = nh.subscribe("clustered_points", 10, cluster_callback);
-    ros::Publisher center_pub = nh.advertise<sensor_msgs::PointCloud2>("center", 10);
     ros::Publisher marker_array_pub = nh.advertise<visualization_msgs::MarkerArray>("visualization_marker_array", 10);
+    ros::Publisher obstacle_pub = nh.advertise<sensor_msgs::PointCloud2>("obstacle", 10);
     ros::Rate loop_rate(10);
 
     while (ros::ok()) {
-        pcl::toROSMsg(*centered_point_ptr, *centered_point_msg_ptr);
-        // centered_point_msg_ptr->header.stamp = ros::Time::now();
-        // centered_point_msg_ptr->header.frame_id = "map";
-        // center_pub.publish(*centered_point_msg_ptr);
+        pcl::toROSMsg(*cloud_ptr, *cloud_msg_ptr);
         marker_array_pub.publish(*arrow_array_ptr);
+        obstacle_pub.publish(*obstacle_msg_ptr);
         loop_rate.sleep();
         // ROS_INFO("%ld", clusters_ptr->size());
         ros::spinOnce();
@@ -50,6 +54,8 @@ int main(int argc, char **argv){
 
 void cluster_callback(const sensor_msgs::PointCloud2::ConstPtr& msg){
     pcl::fromROSMsg(*msg, *cloud_ptr);
+
+
     clusters_ptr->clear();
     //classify
     for(int i=0; i<cloud_ptr->size(); i++){
@@ -61,14 +67,31 @@ void cluster_callback(const sensor_msgs::PointCloud2::ConstPtr& msg){
             clusters_ptr->at(cluster_name).push_back(cloud_ptr->at(i));
         }
     }
-
     removeSmallClusters();
 
-    tracking();
+    center_points_ptr->resize(clusters_ptr->size());
 
-    *ex_cloud_ptr = *cloud_ptr;
+    // 중심 구하기
+    for(int i=0; i<clusters_ptr->size(); i++){
+        auto center_point = get_center(clusters_ptr->at(i).makeShared());
+        center_points_ptr->at(i) = center_point;
+    }
 
-    make_arrows();
+    // 데이터 쌓기
+    if(center_points_ptr->size()>0){
+        center_points_history_ptr->push_back(*center_points_ptr);
+    }
+    
+    if(center_points_history_ptr->size() > 10){
+        center_points_history_ptr->erase(center_points_history_ptr->begin());
+    }
+
+    if(center_points_history_ptr->size() == 10){
+        tracking();
+        make_arrows();
+        make_obstacle_msg();
+    }
+
 }
 
 void removeSmallClusters() {
@@ -95,81 +118,57 @@ void removeSmallClusters() {
     // );
 }
 
-void tracking(){
-    pcl::PassThrough<pcl::PointXYZI> pass;
-    pcl::IterativeClosestPoint<pcl::PointXYZI, pcl::PointXYZI> icp;
-    icp.setMaxCorrespondenceDistance(1.0);  // 점군 간의 최대 대응 거리 (기본값보다 크게 설정)
-    icp.setTransformationEpsilon(1e-1);    // 변환 허용 오차
-    icp.setMaximumIterations(50); 
-    pass.setInputCloud(ex_cloud_ptr);
+pcl::PointXYZ get_center(pcl::PointCloud<pcl::PointXYZI>::Ptr cloud_ptr){
+    auto mean_x = 0.0;
+    auto mean_y = 0.0;
 
-    centered_point_ptr->clear();
-    centered_point_ptr->resize(clusters_ptr->size());
-    translation_ptr->resize(clusters_ptr->size());
-
-    //get center
-    for(int i=0; i<clusters_ptr->size(); i++){
-        pcl::PointCloud<pcl::PointXYZI>::Ptr current_cluster_ptr = clusters_ptr->at(i).makeShared();
-        auto mean_x = 0.0;
-        auto mean_y = 0.0;
-        auto max_x = -999.9;
-        auto min_x = 999.9;
-        auto max_y = -999.9;
-        auto min_y = 999.9;
-
-        for(int j=0; j<current_cluster_ptr->size(); j++){
-            mean_x += current_cluster_ptr->at(j).x;
-            mean_y += current_cluster_ptr->at(j).y;
-
-            if(current_cluster_ptr->at(j).y > max_y){
-                max_y = current_cluster_ptr->at(j).y;
-            }
-            else if(current_cluster_ptr->at(j).y < min_y){
-                min_y = current_cluster_ptr->at(j).y;
-            }
-
-            if(current_cluster_ptr->at(j).x > max_x){
-                max_x = current_cluster_ptr->at(j).x;
-            }
-            else if(current_cluster_ptr->at(j).x < min_x){
-                min_x = current_cluster_ptr->at(j).x;
-            }
-        }
-        mean_x = mean_x/current_cluster_ptr->size();
-        mean_y = mean_y/current_cluster_ptr->size();
-        pcl::PointXYZ point;
-        point.x = mean_x;
-        point.y = mean_y;
-        point.z = 0.0;
-        centered_point_ptr->at(i) = point;
-
-        //cutting map
-        pcl::PointCloud<pcl::PointXYZI>::Ptr cutted_map_ptr(new pcl::PointCloud<pcl::PointXYZI>());
-        pass.setFilterFieldName("y");
-        pass.setFilterLimits(-1 + min_y, 1 + max_y);
-        pass.filter(*cutted_map_ptr);
-        pass.setFilterFieldName("x");
-        pass.setFilterLimits(-1 + min_x, 1 + max_x);
-        pass.filter(*cutted_map_ptr);
-
-        //icp
-        icp.setInputSource(current_cluster_ptr);
-        icp.setInputTarget(cutted_map_ptr);
-        pcl::PointCloud<pcl::PointXYZI> Final; 
-        icp.align(Final);
-        float t_x = 0.0;
-        float t_y = 0.0;
-        if (icp.hasConverged()) {
-            Eigen::Matrix4f transformation = icp.getFinalTransformation();
-            t_x = transformation(0, 3);
-            t_y = transformation(1, 3);
-        }
-
-        translation_ptr->at(i).x = t_x;
-        translation_ptr->at(i).y = t_y;
-        translation_ptr->at(i).z = 0;
+    for(int j=0; j<cloud_ptr->size(); j++){
+        mean_x += cloud_ptr->at(j).x;
+        mean_y += cloud_ptr->at(j).y;
     }
+
+    mean_x = mean_x/cloud_ptr->size();
+    mean_y = mean_y/cloud_ptr->size();
+
+    pcl::PointXYZ point;
+    point.x = mean_x;
+    point.y = mean_y;
+    point.z = 0;
+
+    return point;
 }
+
+void tracking(){
+    pcl::KdTreeFLANN<pcl::PointXYZ> kdtree;
+    translation_ptr->clear();
+    translation_ptr->resize(center_points_history_ptr->at(9).size());
+    
+    for(int i=0; i<translation_ptr->size(); i++){
+        auto search_point = center_points_history_ptr->at(9).at(i);
+        for(int j=0; j<center_points_history_ptr->size() -1; j++){
+            auto current_scene = center_points_history_ptr->at(9-j);
+            auto target_scene = center_points_history_ptr->at(8-j);
+            
+            kdtree.setInputCloud(target_scene.makeShared());
+            int K = 1;  // 최근접점 10개를 찾음
+            std::vector<int> pointIdxNKNSearch(K);
+            std::vector<float> pointNKNSquaredDistance(K);
+
+            kdtree.nearestKSearch(search_point, K, pointIdxNKNSearch, pointNKNSquaredDistance);
+
+            auto nearest_point = target_scene.at(pointIdxNKNSearch[0]);
+
+            if(pointNKNSquaredDistance[0]<1){
+                translation_ptr->at(i).x += - nearest_point.x + search_point.x;
+                translation_ptr->at(i).y += - nearest_point.y + search_point.y;   
+                translation_ptr->at(i).z += 0.1;
+                search_point = nearest_point;
+            }
+        }
+    }
+
+}
+
 
 void make_arrows(){
     arrow_array_ptr->markers.clear();
@@ -191,13 +190,14 @@ void make_arrows(){
 
             // 화살표 시작점과 끝점을 설정
             geometry_msgs::Point start_point;
-            start_point.x = centered_point_ptr->at(i).x;  // X축을 따라 화살표가 멀어지도록 설정
-            start_point.y = centered_point_ptr->at(i).y;
+            start_point.x = center_points_ptr->at(i).x;  // X축을 따라 화살표가 멀어지도록 설정
+            start_point.y = center_points_ptr->at(i).y;
             start_point.z = 0.0;
 
             geometry_msgs::Point end_point;
-            end_point.x = centered_point_ptr->at(i).x + 10 * translation_ptr->at(i).x;
-            end_point.y = centered_point_ptr->at(i).y + 10 * translation_ptr->at(i).y;
+            double tracking_time = translation_ptr->at(i).z;
+            end_point.x = center_points_ptr->at(i).x + translation_ptr->at(i).x / tracking_time;
+            end_point.y = center_points_ptr->at(i).y + translation_ptr->at(i).y / tracking_time;
             end_point.z = 0.0;
 
             // 화살표 크기 설정
@@ -216,4 +216,21 @@ void make_arrows(){
 
             arrow_array_ptr->markers.push_back(marker);
     }
+}
+
+void make_obstacle_msg(){
+    obstacle_ptr->clear();
+    obstacle_ptr->resize(center_points_history_ptr->at(9).size());
+
+    for(int i=0; i<center_points_history_ptr->at(9).size(); i++){
+        obstacle_ptr->at(i).x = center_points_history_ptr->at(9).at(i).x;
+        obstacle_ptr->at(i).y = center_points_history_ptr->at(9).at(i).y;
+        obstacle_ptr->at(i).z = translation_ptr->at(i).x;
+        obstacle_ptr->at(i).intensity = translation_ptr->at(i).y;
+    }
+
+    pcl::toROSMsg(*obstacle_ptr, *obstacle_msg_ptr);
+
+    obstacle_msg_ptr->header.frame_id = "map";  // 'map' 좌표계 기준
+    obstacle_msg_ptr->header.stamp = ros::Time::now();
 }

@@ -78,13 +78,13 @@ void roi(){
         pass.setFilterLimits(-0.5, 1.0);
         pass.filter(*cloud_ptr);
 
-        pass.setFilterFieldName("y");
-        pass.setFilterLimits(-3, 3);
-        pass.filter(*cloud_ptr);
+        // pass.setFilterFieldName("y");
+        // pass.setFilterLimits(-3, 3);
+        // pass.filter(*cloud_ptr);
 
-        pass.setFilterFieldName("x");
-        pass.setFilterLimits(-0, 10);
-        pass.filter(*cloud_ptr);
+        // pass.setFilterFieldName("x");
+        // pass.setFilterLimits(-0, 10);
+        // pass.filter(*cloud_ptr);
 }
 
 void make_2d(){
