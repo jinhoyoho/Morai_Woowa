@@ -7,8 +7,11 @@ calibration::calibration()
     image_sub = nh.subscribe("python_image", 1, &calibration::image_callBack, this);
     lidar_sub = nh.subscribe("lidar_pre", 1, &calibration::lidar_callBack, this);
     
-    this->do_cali(); // calibration 실행
-    
+    intrinsic << fx, skew_c, cx,
+                 0, fy, cy,
+                 0, 0, 1;
+                 
+    this->do_cali();
 }
 
 void calibration::image_callBack(const sensor_msgs::ImageConstPtr& msg)
@@ -61,121 +64,100 @@ void calibration::lidar_callBack(const sensor_msgs::PointCloud2ConstPtr& msg)
     lidar_points = points;
 }
 
-Eigen::Matrix3d calibration::computeRotationMatrix(double roll, double pitch, double yaw) {
-    // 각도를 라디안으로 변환
-    roll *= M_PI / 180.0;
-    pitch *= M_PI / 180.0;
-    yaw *= M_PI / 180.0;
-
-    // 회전 행렬 계산
-    Eigen::Matrix3d R_x;
-    R_x << 1, 0, 0,
-           0, cos(roll), -sin(roll),
-           0, sin(roll), cos(roll);
-
-    Eigen::Matrix3d R_y;
-    R_y << cos(pitch), 0, sin(pitch),
-           0, 1, 0,
-           -sin(pitch), 0, cos(pitch);
-
-    Eigen::Matrix3d R_z;
-    R_z << cos(yaw), -sin(yaw), 0,
-           sin(yaw), cos(yaw), 0,
-           0, 0, 1;
-
-    // 전체 회전 행렬
-    return R_z * R_y * R_x;
-}
 
 void calibration::do_cali()
 {
-    // // 카메라 매트릭스, 회전 벡터, 변환 벡터 정의
-    // cameraMatrix = (cv::Mat_<double>(3, 3) << fx, 0, cx,
-    //                                         0,fy, cy,
-    //                                         0, 0, 1);
-    
-    // cv::Mat rotate = (cv::Mat_<double>(3, 1) <<  90 * M_PI / 180, 0 * M_PI / 180, 0 * M_PI / 180); // 회전 없음
-    // cv::Rodrigues(rotate, rvec);
+    // 3D 포인트 (LiDAR 좌표계)
+    std::vector<cv::Point3f> objectPoints = {
+        cv::Point3f(3.8865, 2.8769, 0.93993),
+        cv::Point3f(6.0686, 0.057146, 0.74517),
+        cv::Point3f(3.7771, -2.4609, 0.87629),
+        cv::Point3f(3.8467, 2.8538, 0.25102),
+        cv::Point3f(6.044, 0.051695, 0.1055),
+        cv::Point3f(3.7597, -2.4438, 0.23501),
+        cv::Point3f(3.8965, 2.7406, -0.41678),
+        cv::Point3f(6.0707, -0.10597, -0.3182),
+        cv::Point3f(3.7982, -2.6378, -0.40458)
+    };
 
-    // tvec = (cv::Mat_<double>(3, 1) << lidar_x - camera_x, lidar_y - camera_y, lidar_z - camera_z); 
-    // distCoeffs = cv::Mat::zeros(4, 1, CV_64F); // 왜곡 없음
+    // 2D 포인트 (카메라 이미지 좌표계)
+    std::vector<cv::Point2f> imagePoints = {
+        cv::Point2f(88, 184),
+        cv::Point2f(319, 201),
+        cv::Point2f(523, 178),
+        cv::Point2f(80, 240),
+        cv::Point2f(317, 234),
+        cv::Point2f(527, 229),
+        cv::Point2f(100, 278),
+        cv::Point2f(325, 266),
+        cv::Point2f(542, 275)
+    };
 
-    // std::cout << "cameraMatrix: \n" << cameraMatrix << "\n\n";
-    // std::cout << "rvec: \n" << rvec << "\n\n";
-    // std::cout << "tvec: \n" << tvec << "\n\n";
-    // std::cout << "distCoeffs: \n" << distCoeffs << "\n\n";
+    // 카메라 내적 매트릭스 (fx, fy, cx, cy)
+    cv::Mat cameraMatrix = (cv::Mat_<double>(3, 3) << 
+        fx, skew_c, cx,
+        0, fy, cy,
+        0, 0, 1);
 
-    // camera 내부 파라미터 값 저장
-    intrinsic << fx, skew_c, cx,
-                 0, fy, cy,
-                 0, 0, 1;
+    // 왜곡 계수 (예: [k1, k2, p1, p2, k3])
+    cv::Mat distCoeffs = cv::Mat::zeros(4, 1, CV_64F); // 왜곡이 없는 경우
 
+    // 외부 파라미터 (회전 벡터와 이동 벡터)
+    cv::Mat rvec, tvec;
 
-    // camera 외부 파라미터 값 저장
-    // 카메라 회전 행렬 계산
-    Eigen::Matrix3d camera_rotation = computeRotationMatrix(camera_roll, camera_pitch, camera_yaw);
-    
-    // 원점 좌표 저장
-    camera_origin << camera_x, camera_y, camera_z;
-    lidar_origin << lidar_x, lidar_y, lidar_z;
+    // solvePnP를 사용하여 외부 파라미터 계산
+    bool success = cv::solvePnP(objectPoints, imagePoints, cameraMatrix, distCoeffs, rvec, tvec);
 
-    // 변환 벡터 계산
-    Eigen::Vector3d translation = camera_origin - lidar_origin;
+    if (success) {
+        std::cout << "Rotation Vector:\n" << rvec << std::endl;
+        std::cout << "Translation Vector:\n" << tvec << std::endl;
 
-    extrinsic.block<3, 3>(0, 0) = camera_rotation;   // (0, 0)부터 3x3을 채워넣겠다
-    extrinsic.block<3, 1>(0, 3) = translation;  // (0, 3)부터 3x1을 채워넣겠다
+        // 회전 벡터를 회전 행렬로 변환
+        cv::Mat rotationMatrix;
+        cv::Rodrigues(rvec, rotationMatrix);
+        std::cout << "Rotation Matrix:\n" << rotationMatrix << std::endl;
 
-    std::cout << "Intrinsic Matrix: \n";
+        // Eigen으로 변환
+        Eigen::Matrix3d R; // 3x3 회전 행렬
+       
 
-    for (int i=0; i < intrinsic.rows(); i++)
-    {
-        for(int j=0; j < intrinsic.cols(); j++)
-        {
-            std::cout << intrinsic(i, j) << " ";
+        // OpenCV 회전 행렬을 Eigen으로 변환
+        for (int i = 0; i < 3; ++i) {
+            for (int j = 0; j < 3; ++j) {
+                R(i, j) = rotationMatrix.at<double>(i, j);
+            }
         }
-        std::cout << "\n";
-    }
 
-    std::cout << "Extrinsic Matrix: \n";
+        // 이동 벡터를 Eigen으로 변환
+        Eigen::Vector3d t;
+        t << tvec.at<double>(0), tvec.at<double>(1), tvec.at<double>(2);
 
-    for (int i=0; i < extrinsic.rows(); i++)
-    {
-        for(int j=0; j < extrinsic.cols(); j++)
-        {
-            std::cout << extrinsic(i, j) << " ";
-        }
-        std::cout << "\n";
+        // extrinsic 매트릭스 구성
+        extrinsic.block<3, 3>(0, 0) = R; // 회전 행렬
+        extrinsic.block<3, 1>(0, 3) = t; // 이동 벡터
+
+        // 결과 출력
+        std::cout << "Extrinsic Parameters:\n" << extrinsic << std::endl;
+    } else {
+        std::cout << "solvePnP failed!" << std::endl;
     }
 }
 
 
-// 라이다 점을 이미지에 투영
+
 void calibration::projection()
 {
-    // // 이미지 포인트를 저장할 벡터
-    // std::vector<cv::Point2f> imagePoints;
-
-    // // 3D 포인트를 2D 이미지 평면으로 투영
-    // try {
-    //     cv::projectPoints(lidar_points, rvec, tvec, cameraMatrix, distCoeffs, imagePoints);
-    // } catch (const cv::Exception& e) {
-    //     std::cerr << "OpenCV Exception: " << e.what() << std::endl;
-    //     return; // 오류 처리
-    // }
-
-    // for (const auto& imagePoint : imagePoints)
-    // {
-    //     std::cout << imagePoint.x << " " << imagePoint.y << "\n";
-    //     cv::circle(frame, imagePoint, 3, cv::Scalar(255, 0, 255), -1);
-    // }
+    // LiDAR 포인트의 shape 출력
+    std::cout << "Shape of lidar_points: " << lidar_points.rows() << " x " << lidar_points.cols() << std::endl;
 
     // 결과를 저장할 벡터
     std::vector<Eigen::Vector3d> results; // 3D 포인트를 저장할 벡터
 
-    for(int i=0; i < lidar_points.cols(); i++)
+    for(int i = 0; i < lidar_points.rows(); i++)
     {
         Eigen::Vector4d point;
-        point << lidar_points(0, i), lidar_points(1, i), lidar_points(2, i), 1; // 동차 좌표로 변환
+        point << lidar_points(i, 0), lidar_points(i, 1), lidar_points(i, 2), 1; // 동차 좌표로 변환
+        std::cout << "LiDAR Point: " << point.transpose() << "\n"; // LiDAR 포인트 출력
 
         // 결과 저장
         Eigen::Vector3d result = intrinsic * extrinsic * point; // 3x1 벡터
@@ -184,15 +166,16 @@ void calibration::projection()
 
     // OpenCV에서 점을 찍기
     for (const auto& result : results) {
-        int x = static_cast<int>(result[0]); // X 좌표
-        int y = static_cast<int>(result[1]); // Y 좌표
+        int x = static_cast<int>(result[0] / result[2]); // X 좌표
+        int y = static_cast<int>(result[1] / result[2]); // Y 좌표
 
         // std::cout << x << " " << y << "\n";
 
         // 점 찍기 (빨간색, 두께 5)
-        cv::circle(frame, cv::Point(x, y), 5, cv::Scalar(0, 0, 255), -1);
+        cv::circle(frame, cv::Point(x, y), 1, cv::Scalar(0, 0, 255), -1);
     }
 }
+
 
 
 int main(int argc, char** argv)

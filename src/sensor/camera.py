@@ -42,7 +42,7 @@ class IMGParser:
             
                 for box in boxes:
                     label = results[0].names[int(box[5])]
-                    if box[4] > 0.3 and label == 'person': # 사람인 경우에만 그리기
+                    if box[4] > 0.3 and (label == 'person' or label == 'traffic_light'): # 사람 or 신호등 경우에만 그리기
                         detected_obj = obj_info()
                         left = int(box[0])
                         bottom = int(box[1])
@@ -61,8 +61,12 @@ class IMGParser:
                     
 
                 # cv2.imshow("Image window", self.img_bgr)
-                
-                
+                # success = cv2.imwrite('./test.jpg', self.img_bgr)
+                # if success:
+                #     print("Image saved successfully!")
+                # else:
+                #     print("Failed to save the image!")
+                                
                 # if cv2.waitKey(1) == ord('q'):
                 #     break
 

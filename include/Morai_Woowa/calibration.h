@@ -31,6 +31,7 @@ double lidar_x = 0.1;
 double lidar_y = 0.0;
 double lidar_z = 0.739;
 
+
 // 카메라와 라이다의 각도(degree)
 double camera_roll = 0.0;
 double camera_pitch = 0.0;
