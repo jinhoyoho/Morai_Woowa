@@ -19,10 +19,10 @@ rosrun Morai_Woowa state_node
 name : /current_pose<br/>
 type : geomtry_msgs.Pose2D<br/>
 설명 : utm_k좌표계 기준 robot의 x,y,yaw<br/> 
-<br/><br/>
+<br/>
 name : /lidar_pre<br/>
 type : sensor_msgs/PointCloud2<br/>
-설명 : roi, voxel, ransac 전터리된 라이다값<br/>
+설명 : roi, voxel, ransac 전처리된 라이다값<br/>
 <br/>
 name : /lidar_utm<br/>
 type : sensor_msgs/PointCloud2<br/>
