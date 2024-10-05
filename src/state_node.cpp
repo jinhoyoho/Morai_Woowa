@@ -22,11 +22,11 @@ public:
     StateNode() : closest_index_(-1) {
 
         // path폴더안에 path파일 이름!!!!!
-        std::string filename = "test_path.csv";
-        std::string current_path = ros::package::getPath("Morai_Woowa"); // 패키지 경로를 가져옵니다
-        waypoint_file_ = current_path + "/path/" + filename;
+        // std::string filename = "test_path.csv";
+        // std::string current_path = ros::package::getPath("Morai_Woowa"); // 패키지 경로를 가져옵니다
+        // waypoint_file_ = current_path + "/path/" + filename;
 
-        nh.param<std::string>("/state_node/waypoint_file", waypoint_file, "waypoints.csv");
+        nh_.param<std::string>("/state_node/waypoint_file", waypoint_file_, "waypoints.csv");
 
         current_pose_sub_ = nh_.subscribe("/current_pose", 10, &StateNode::currentPoseCallback, this);
         loadWaypoints();  // waypoint 파일에서 로드
@@ -161,9 +161,9 @@ int main(int argc, char** argv) {
 
     std::thread thread(&StateNode::state, &StateNode);
 
-    thread.join();  // 스레드가 종료될 때까지 대기
-
     ros::spin();
+    
+    thread.join();  // 스레드가 종료될 때까지 대기
 
     return 0;
 }
