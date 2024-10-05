@@ -23,10 +23,10 @@ public:
 
         // path폴더안에 path파일 이름!!!!!
         std::string filename = "test_path.csv";
-        //ros::param::get("~waypoint_file_name", filename); 
-
         std::string current_path = ros::package::getPath("Morai_Woowa"); // 패키지 경로를 가져옵니다
         waypoint_file_ = current_path + "/path/" + filename;
+
+        nh.param<std::string>("/state_node/waypoint_file", waypoint_file, "waypoints.csv");
 
         current_pose_sub_ = nh_.subscribe("/current_pose", 10, &StateNode::currentPoseCallback, this);
         loadWaypoints();  // waypoint 파일에서 로드

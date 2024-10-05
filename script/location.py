@@ -39,6 +39,27 @@ class GPSToUTM:
         else:
             rospy.logwarn("Failed to convert lat/lon to UTM.")
 
+        # br = tf.TransformBroadcaster()
+
+        # # GPS 좌표를 기반으로 gps_frame 발행
+        # br.sendTransform((0, 0, 0), 
+        #                     tf.transformations.quaternion_from_euler(0, 0, 0),  # 회전 (yaw, pitch, roll)
+        #                     rospy.Time.now(),
+        #                     "gps_frame",  # TF 프레임 이름
+        #                     "map")        # 부모 프레임 이름
+
+        # # LiDAR 프레임 변환 (예: LiDAR가 gps_frame을 기준으로 offset이 있을 경우)
+        # lidar_translation = (5, 0.0, 0.0)  # LiDAR의 위치 오프셋 (예시)
+        # lidar_rotation = tf.transformations.quaternion_from_euler(0, 0, 0)  # 회전 (예시)
+
+        # # LiDAR 프레임 발행
+        # br.sendTransform(lidar_translation,
+        #                     lidar_rotation,
+        #                     rospy.Time.now(),
+        #                     "velodyn_points",  # TF 프레임 이름
+        #                     "gps_frame")    # 부모 프레임 이름
+
+
     def imu_callback(self, msg):
         # Quaternion에서 yaw 추출
         quaternion = (msg.orientation.x, msg.orientation.y, msg.orientation.z, msg.orientation.w)

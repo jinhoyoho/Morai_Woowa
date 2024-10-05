@@ -1,5 +1,7 @@
 {
     "files.associations": {
-        "variant": "cpp"
+        "variant": "cpp",
+        "core": "cpp",
+        "numericaldiff": "cpp"
     }
 }

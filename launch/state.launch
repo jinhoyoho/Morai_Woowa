@@ -1,0 +1,5 @@
+<launch>
+    <node name="state_node" pkg="Morai_Woowa" type="state_node" output="screen">
+        <param name="/waypoint_file" value="$(find Morai_Woowa)/path/test_path.csv"/>
+    </node>
+</launch>
