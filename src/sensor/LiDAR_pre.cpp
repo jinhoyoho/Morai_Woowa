@@ -7,6 +7,7 @@ LiDAR_pre::LiDAR_pre()
     ros::NodeHandle nh;
     point_sub_ = nh.subscribe("velodyne_points", 1, &LiDAR_pre::cloud_callBack, this);
     pub = nh.advertise<sensor_msgs::PointCloud2> ("lidar_pre", 1);
+    pub_utm_pcl = nh.advertise<sensor_msgs::PointCloud2> ("lidar_utm", 1);
 }
 
 // Pointer -> PointCloud2로 변경하는 함수
@@ -43,6 +44,39 @@ void LiDAR_pre::Pub2Sensor(pcl::PointCloud<pcl::PointXYZI> pc2)
     pub.publish(output);
 }
 
+void LiDAR_pre::Pub2Sensor_utm(pcl::PointCloud<pcl::PointXYZI>::Ptr pcl_pointer)
+{
+    pcl::PCLPointCloud2 pcl_pc_filtered;
+
+    pcl::toPCLPointCloud2(*pcl_pointer, pcl_pc_filtered);
+
+    sensor_msgs::PointCloud2 output;
+
+    pcl_conversions::fromPCL(pcl_pc_filtered, output);
+
+    output.header.frame_id = "map";
+    output.header.stamp = ros::Time::now();
+
+    pub_utm_pcl.publish(output);
+}
+
+// 포인트 클라우드를 ROS 메시지로 변환하여 발행
+void LiDAR_pre::Pub2Sensor_utm(pcl::PointCloud<pcl::PointXYZI> pc2)
+{
+    pcl::PCLPointCloud2 pcl_pc_filtered;
+
+    pcl::toPCLPointCloud2(pc2, pcl_pc_filtered);
+
+    sensor_msgs::PointCloud2 output;
+
+    pcl_conversions::fromPCL(pcl_pc_filtered, output);
+
+    output.header.frame_id = "map";
+    output.header.stamp = ros::Time::now();
+
+    pub_utm_pcl.publish(output);
+}
+
 void LiDAR_pre::cloud_callBack(const sensor_msgs::PointCloud2& msg)
 {
    pcl_conversions::toPCL(msg, pcl_pc); // ROS -> PCLPointCloud2
@@ -54,6 +88,18 @@ void LiDAR_pre::cloud_callBack(const sensor_msgs::PointCloud2& msg)
    this->ransac(); // ransac 실행
 
    Pub2Sensor(cloud_data);
+
+   this->coord_transform();
+
+   Pub2Sensor_utm(cloud_data);
+
+}
+
+void LiDAR_pre::pose_callBack(const geometry_msgs::Pose2D::ConstPtr& msg)
+{
+    global_x_ = static_cast<float>(msg->x);
+    global_y_ = static_cast<float>(msg->y);
+    global_yaw_ = static_cast<float>(msg->theta);
 }
 
 void LiDAR_pre::roi()
@@ -141,6 +187,21 @@ void LiDAR_pre::ransac()
 	extract.filter(*inlierPoints_neg);
 
     cloud_data = *inlierPoints_neg;
+}
+
+void LiDAR_pre::coord_transform()
+{
+    pcl::PointCloud<pcl::PointXYZI>::Ptr raw_data_p_ = cloud_data.makeShared();
+
+    // Transform point cloud to global frame using localization data
+    Eigen::Affine3f transform = Eigen::Affine3f::Identity();
+    transform.translation() << global_x_, global_y_, 0.0;
+    transform.rotate(Eigen::AngleAxisf(global_yaw_, Eigen::Vector3f::UnitZ()));
+
+    pcl::PointCloud<pcl::PointXYZI>::Ptr transformed_cloud(new pcl::PointCloud<pcl::PointXYZI>());
+    pcl::transformPointCloud(*raw_data_p_, *transformed_cloud, transform);
+    
+    cloud_data = *transformed_cloud; 
 }
 
 
