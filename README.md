@@ -10,9 +10,18 @@ rosrun Morai_Woowa waypoint_saver.py
 path폴더 안에 생성됨. 파일 이름 바꾸기!!
 
 ### state_node 실행
+roslaunch Morai_Woowa state.launch
+<br/>
+or
+<br/>
 rosrun Morai_Woowa state_node 
 <br/>
-로드할 경로 이름 바꾸기!!
+코드 혹은 런치파일에 로드할 경로 이름 바꾸기!!
+
+### visual 실행
+roslaunch Morai_Woowa visual.launch
+<br/>
+런치파일에 로드할 경로 이름 바꾸기!!
 
 
 # Topics
