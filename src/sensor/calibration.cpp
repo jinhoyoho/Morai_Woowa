@@ -1,5 +1,4 @@
 #include "Morai_Woowa/calibration.h"
-#include "Morai_Woowa/LiDAR_pre.h"
 
 calibration::calibration()
 {
@@ -176,6 +175,7 @@ int main(int argc, char** argv)
 
     calibration cl;
     LiDAR_pre lp;
+    Traffic tf;
 
     ros::spin();
 

@@ -62,11 +62,9 @@ class IMGParser:
                         self.img_bgr = cv2.rectangle(self.img_bgr, (left, bottom), (right, top), (0,0,255),2)
                         self.obj_pub.publish(detected_obj)
 
-                    
-
-                cv2.imshow("Image window", self.img_bgr)
-                if cv2.waitKey(1) == ord('q'):
-                    break
+                # cv2.imshow("Image window", self.img_bgr)
+                # if cv2.waitKey(1) == ord('q'):
+                #     break
                 # success = cv2.imwrite('./test.jpg', self.img_bgr)
                 # if success:
                 #     print("Image saved successfully!")
