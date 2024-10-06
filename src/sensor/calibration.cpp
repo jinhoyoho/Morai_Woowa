@@ -19,11 +19,8 @@ void calibration::image_callBack(const sensor_msgs::ImageConstPtr& msg)
     try
     {
         // bgr data가 수신되어 그냥 이용해도 된다
-        frame = cv::Mat(msg->height, msg->width, CV_8UC3, const_cast<unsigned char*>(msg->data.data()), msg->step);
+        frame = cv::Mat(msg->height, msg->width, CV_8UC3, const_cast<unsigned char*>(msg->data.data()), msg->step);        
 
-        this->projection(); // 투영
-
-        // 변환된 이미지를 보여줍니다.
         cv::imshow("Received Image", frame);
         if (cv::waitKey(10) == 27) exit(1);  // esc키로 종료  
     }
@@ -37,28 +34,23 @@ void calibration::image_callBack(const sensor_msgs::ImageConstPtr& msg)
 void calibration::lidar_callBack(const sensor_msgs::PointCloud2ConstPtr& msg)
 {
     pcl::PCLPointCloud2 cloud_intermediate; // 포인트 클라우드 데이터 저장
-    pcl::PointCloud<pcl::PointXYZ> cloud;   // pointcloud 저장
 
     // 포인터가 가리키는 포인트 클라우드 데이터를 cloud_intermediate에 저장
     pcl_conversions::toPCL(*msg, cloud_intermediate);
     // cloud_intermediate에 저장된 PCL 포인트 클라우드 데이터를 cloud 객체로 변환
     pcl::fromPCLPointCloud2(cloud_intermediate, cloud);
-
-    Eigen::MatrixXd points(cloud.size(), 3); // x, y, z
-
-    for (size_t i = 0; i < cloud.size(); i++) {
-        points(i, 0) = cloud.points[i].x;       // x
-        points(i, 1) = cloud.points[i].y;       // y
-        points(i, 2) = cloud.points[i].z;       // z
-    }
-
-    // lidar_points에 저장
-    lidar_points = points;
 }
 
 void calibration::object_callBack(const Morai_Woowa::obj_info::ConstPtr& msg)
 {
-    std::cout << msg->name << "\n";
+    if (msg->name == "person")
+    {
+        ymax = msg->ymax;
+        ymin = msg->ymin;
+        xmax = msg->xmax;
+        xmin = msg->xmin;
+        this->projection();
+    }
 }
 
 
@@ -140,28 +132,64 @@ void calibration::do_cali()
 
 void calibration::projection()
 {
-    // 결과를 저장할 벡터
-    std::vector<Eigen::Vector3d> results; // 3D 포인트를 저장할 벡터
+    try{
+        std::unordered_map<int, std::vector<double>> classDistances; // 클래스별 거리 저장
+        std::unordered_map<int, int> classCount; // 클래스별 점 수 저장
+        cv::Mat copy_frame = frame;
 
-    for(int i = 0; i < lidar_points.rows(); i++)
-    {
-        Eigen::Vector4d point;
-        point << lidar_points(i, 0), lidar_points(i, 1), lidar_points(i, 2), 1; // 동차 좌표로 변환
+        for(int i = 0; i < cloud.size(); i++)
+        {
+            Eigen::Vector4d point;
+            point << cloud.points[i].x, cloud.points[i].y, cloud.points[i].z, 1; // 동차 좌표로 변환
 
-        // 결과 저장
-        Eigen::Vector3d result = intrinsic * extrinsic * point; // 3x1 벡터
-        results.push_back(result); // 벡터에 추가
+            // 결과 저장
+            Eigen::Vector3d result = intrinsic * extrinsic * point; // 3x1 벡터
+            
+            int x = static_cast<int>(result[0] / result[2]); // X 좌표
+            int y = static_cast<int>(result[1] / result[2]); // Y 좌표
+
+            // std::cout << x << " " << y << "\n";
+            // 박스 안에 있을 때만 점 찍기
+            if ((xmin <= x) && (x <= xmax) && (ymin <= y) && (y <= ymax))
+            {
+                // 점 찍기 (빨간색)
+                cv::circle(copy_frame, cv::Point(x, y), 3, cv::Scalar(0, 0, 255), -1);
+
+                // 거리 계산
+                double distance = std::sqrt(cloud.points[i].x * cloud.points[i].x + 
+                                            cloud.points[i].y * cloud.points[i].y +
+                                            cloud.points[i].z * cloud.points[i].z);
+
+                int classId = static_cast<int>(cloud.points[i].intensity); // intensity를 클래스 ID로 변환
+                // 거리 추가
+                classDistances[classId].push_back(distance);
+                classCount[classId]++;
+            }
+        }
+
+        // 평균 거리 계산
+        for (const auto& entry : classDistances) {
+            int classId = entry.first;
+            const std::vector<double>& distances = entry.second;
+
+            double sum = 0.0;
+            for (double dist : distances) {
+                sum += dist;
+            }
+            double averageDistance = sum / classCount[classId];
+
+            std::cout << "Class " << classId << ": Average Distance = " << averageDistance << std::endl;
+        }
+
+        if (!copy_frame.empty())
+        {
+            cv::imshow("Projection Image", copy_frame);
+            if (cv::waitKey(10) == 27) exit(1);  // esc키로 종료 
+        }
     }
-
-    // OpenCV에서 점을 찍기
-    for (const auto& result : results) {
-        int x = static_cast<int>(result[0] / result[2]); // X 좌표
-        int y = static_cast<int>(result[1] / result[2]); // Y 좌표
-
-        // std::cout << x << " " << y << "\n";
-
-        // 점 찍기 (빨간색, 두께 5)
-        cv::circle(frame, cv::Point(x, y), 3, cv::Scalar(0, 0, 255), -1);
+    catch (cv_bridge::Exception& e)
+    {
+        ROS_ERROR("Calibration ERROR! %s", e.what());
     }
 }
 

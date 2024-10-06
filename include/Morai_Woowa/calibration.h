@@ -1,12 +1,15 @@
 #include <iostream>
+#include <string>
 #include <ros/ros.h>
 #include <sensor_msgs/PointCloud2.h>
 #include <Eigen/Dense>  // Matrix
+#include <vector>
+#include <unordered_map>
+#include <cmath>
 
 #include <image_transport/image_transport.h>
 #include <opencv2/highgui/highgui.hpp>
 #include <cv_bridge/cv_bridge.h>
-
 #include <opencv2/opencv.hpp>
 #include <opencv2/calib3d.hpp>
 
@@ -37,12 +40,18 @@ private:
     ros::Publisher pub;
     
     cv::Mat frame;  // 이미지
-    Eigen::MatrixXd lidar_points;   // 라이다
     
     Eigen::Matrix3d intrinsic;  // 카메라 내부 파라미터 3x3
     Eigen::Matrix<double, 3, 4> extrinsic;  // 외부 파라미터 3x4
 
+    pcl::PointCloud<pcl::PointXYZI> cloud;   // pointcloud 저장
 
+
+    // box 크기
+    int xmin;
+    int xmax;
+    int ymin;
+    int ymax;
 
 public:
     calibration();  // 생성자
