@@ -23,7 +23,7 @@ roslaunch Morai_Woowa visual.launch
 <br/><br/>
 런치파일에 로드할 경로 이름 바꾸기!!
 
-### 웹소켓 실행
+### rosbridge 실행
 sudo apt-get install ros-noetic-rosbridge-server
 <br/><br/>
 roscd rosbridge_server/launch (파일찾기)
@@ -33,8 +33,7 @@ gedit rosbridge_websocket.launch
 192.168.0.2 으로 설정(예시)
 <arg name="address" default="192.168.0.2" /> 이 부분 바꾸기
 <br/><br/>
-roslaunch rosbridge_server rosbridge_websocket.launch
-
+roslaunch rosbridge_server rosbridge_websocket.launch - rosbridge 실행
 
 # Topics
 name : /current_pose<br/>
