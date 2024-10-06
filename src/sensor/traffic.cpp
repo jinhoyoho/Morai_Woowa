@@ -30,12 +30,7 @@ void Traffic::image_callBack(const sensor_msgs::ImageConstPtr& msg)
 {
     try
     {
-        // bgr data가 수신되어 그냥 이용해도 된다
         frame = cv::Mat(msg->height, msg->width, CV_8UC3, const_cast<unsigned char*>(msg->data.data()), msg->step);
-
-        // 변환된 이미지를 보여줍니다.
-        // cv::imshow("Received Image", frame);
-        // if (cv::waitKey(10) == 27) exit(1);  // esc키로 종료  
     }
     catch (cv_bridge::Exception& e)
     {
@@ -100,8 +95,14 @@ void Traffic::process_image(int xmin, int xmax, int ymin, int ymax)
         // 초록색 비율 계산
         double greenRatio = static_cast<double>(greenPixelCount) / totalPixelCount;
 
-        cv::imshow("Traffic Image", subImage);
-        if (cv::waitKey(10) == 27) exit(1);  // esc키로 종료
+        if (greenRatio > 0) // 초록불이면 가라
+        {
+            flag = true;    // 고고고 -> topic으로 주고받는게 나을 것 같음
+            ROS_INFO("GO!");
+        }
+
+        // cv::imshow("Traffic Image", subImage);
+        // if (cv::waitKey(10) == 27) exit(1);  // esc키로 종료
     }
     catch (cv_bridge::Exception& e)
     {
