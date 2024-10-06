@@ -6,6 +6,7 @@ calibration::calibration()
     ros::NodeHandle nh;
     image_sub = nh.subscribe("python_image", 1, &calibration::image_callBack, this);
     lidar_sub = nh.subscribe("lidar_pre", 1, &calibration::lidar_callBack, this);
+    object_sub = nh.subscribe("detected_object", 1, &calibration::object_callBack, this);
     
     intrinsic << fx, skew_c, cx,
                  0, fy, cy,
@@ -44,14 +45,6 @@ void calibration::lidar_callBack(const sensor_msgs::PointCloud2ConstPtr& msg)
     // cloud_intermediate에 저장된 PCL 포인트 클라우드 데이터를 cloud 객체로 변환
     pcl::fromPCLPointCloud2(cloud_intermediate, cloud);
 
-    // // std::vector<cv::Point3f>로 변환
-    // std::vector<cv::Point3f> objectPoints;
-
-    // // 포인트 변환
-    // for (size_t i = 0; i < cloud.size(); ++i) {
-    //     objectPoints.emplace_back(cloud.points[i].x, cloud.points[i].y, cloud.points[i].z);
-    // }
-
     Eigen::MatrixXd points(cloud.size(), 3); // x, y, z
 
     for (size_t i = 0; i < cloud.size(); i++) {
@@ -62,6 +55,11 @@ void calibration::lidar_callBack(const sensor_msgs::PointCloud2ConstPtr& msg)
 
     // lidar_points에 저장
     lidar_points = points;
+}
+
+void calibration::object_callBack(const Morai_Woowa::obj_info::ConstPtr& msg)
+{
+    std::cout << msg->name << "\n";
 }
 
 
@@ -94,10 +92,7 @@ void calibration::do_cali()
     };
 
     // 카메라 내적 매트릭스 (fx, fy, cx, cy)
-    cv::Mat cameraMatrix = (cv::Mat_<double>(3, 3) << 
-        fx, skew_c, cx,
-        0, fy, cy,
-        0, 0, 1);
+    cv::Mat cameraMatrix(3, 3, CV_64F, intrinsic.data());
 
     // 왜곡 계수 (예: [k1, k2, p1, p2, k3])
     cv::Mat distCoeffs = cv::Mat::zeros(4, 1, CV_64F); // 왜곡이 없는 경우
@@ -144,12 +139,8 @@ void calibration::do_cali()
 }
 
 
-
 void calibration::projection()
 {
-    // LiDAR 포인트의 shape 출력
-    std::cout << "Shape of lidar_points: " << lidar_points.rows() << " x " << lidar_points.cols() << std::endl;
-
     // 결과를 저장할 벡터
     std::vector<Eigen::Vector3d> results; // 3D 포인트를 저장할 벡터
 
@@ -157,7 +148,6 @@ void calibration::projection()
     {
         Eigen::Vector4d point;
         point << lidar_points(i, 0), lidar_points(i, 1), lidar_points(i, 2), 1; // 동차 좌표로 변환
-        std::cout << "LiDAR Point: " << point.transpose() << "\n"; // LiDAR 포인트 출력
 
         // 결과 저장
         Eigen::Vector3d result = intrinsic * extrinsic * point; // 3x1 벡터
@@ -172,7 +162,7 @@ void calibration::projection()
         // std::cout << x << " " << y << "\n";
 
         // 점 찍기 (빨간색, 두께 5)
-        cv::circle(frame, cv::Point(x, y), 1, cv::Scalar(0, 0, 255), -1);
+        cv::circle(frame, cv::Point(x, y), 3, cv::Scalar(0, 0, 255), -1);
     }
 }
 

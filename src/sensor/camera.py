@@ -17,6 +17,7 @@ class IMGParser:
         rospy.init_node('image_parser', anonymous=True)
         self.image_sub = rospy.Subscriber("/image_jpeg/compressed", CompressedImage, self.callback)
         self.image_pub = rospy.Publisher('python_image', Image, queue_size=10)
+        self.obj_pub = rospy.Publisher('detected_object', obj_info, queue_size=10)
         self.is_image = False
         self.br = CvBridge()
 
@@ -42,7 +43,7 @@ class IMGParser:
             
                 for box in boxes:
                     label = results[0].names[int(box[5])]
-                    if box[4] > 0.3 and (label == 'person' or label == 'traffic_light'): # 사람 or 신호등 경우에만 그리기
+                    if box[4] > 0.3 and (label == 'person' or label == 'traffic light'): # 사람 or 신호등 경우에만 그리기
                         detected_obj = obj_info()
                         left = int(box[0])
                         bottom = int(box[1])
@@ -55,24 +56,24 @@ class IMGParser:
                         detected_obj.ymin = bottom
                         detected_obj.xmax = right
                         detected_obj.ymax = top
+                        detected_obj.name = label
 
                         # 인지된 객체 바운딩박스 그려준다.
                         self.img_bgr = cv2.rectangle(self.img_bgr, (left, bottom), (right, top), (0,0,255),2)
+                        self.obj_pub.publish(detected_obj)
+
                     
 
-                # cv2.imshow("Image window", self.img_bgr)
+                cv2.imshow("Image window", self.img_bgr)
+                if cv2.waitKey(1) == ord('q'):
+                    break
                 # success = cv2.imwrite('./test.jpg', self.img_bgr)
                 # if success:
                 #     print("Image saved successfully!")
                 # else:
                 #     print("Failed to save the image!")
-                                
-                # if cv2.waitKey(1) == ord('q'):
-                #     break
 
-                print(f"Caemra sensor was connected !")
-
-                # publish image
+                # publish
                 self.image_pub.publish(self.br.cv2_to_imgmsg(self.img_bgr))
 
 

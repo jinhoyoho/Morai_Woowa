@@ -18,6 +18,8 @@
 #include <pcl/filters/extract_indices.h>
 #include <pcl/ModelCoefficients.h>
 
+#define EPSILON 1
+#define MIN_POINTS 3
 
 class LiDAR_pre
 {
@@ -46,6 +48,9 @@ public:
     void ransac();
     void dbscan();
     void coord_transform();
+    double euclideanDistance(const pcl::PointXYZI& point1, const pcl::PointXYZI& point2);
+    void dbscan(double epsilon, int minPoints);
+
     
 private:
     // const sensor_msgs::PointCloud2ConstPtr& input;
