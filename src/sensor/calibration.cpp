@@ -153,7 +153,7 @@ void calibration::projection()
             if ((xmin <= x) && (x <= xmax) && (ymin <= y) && (y <= ymax))
             {
                 // 점 찍기 (빨간색)
-                cv::circle(copy_frame, cv::Point(x, y), 3, cv::Scalar(0, 0, 255), -1);
+                // cv::circle(copy_frame, cv::Point(x, y), 3, cv::Scalar(0, 0, 255), -1);
 
                 // 거리 계산
                 double distance = std::sqrt(cloud.points[i].x * cloud.points[i].x + 
@@ -181,11 +181,11 @@ void calibration::projection()
             std::cout << "Class " << classId << ": Average Distance = " << averageDistance << std::endl;
         }
 
-        if (!copy_frame.empty())
-        {
-            cv::imshow("Projection Image", copy_frame);
-            if (cv::waitKey(10) == 27) exit(1);  // esc키로 종료 
-        }
+        // if (!copy_frame.empty())
+        // {
+        //     cv::imshow("Projection Image", copy_frame);
+        //     if (cv::waitKey(10) == 27) exit(1);  // esc키로 종료 
+        // }
     }
     catch (cv_bridge::Exception& e)
     {

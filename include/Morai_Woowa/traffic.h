@@ -11,6 +11,7 @@ class Traffic
 {
     private:
         bool flag;  // 출발 플래그
+        bool img_flag;
         cv::Mat frame; // 이미지
         ros::Subscriber image_sub;
         ros::Subscriber object_sub;
@@ -20,5 +21,5 @@ class Traffic
 
         void object_callBack(const Morai_Woowa::obj_info::ConstPtr& msg);
         void image_callBack(const sensor_msgs::ImageConstPtr& msg);
-        void process_image(int xmin, int xmax, int ymin, int ymax);
+        void process_image();
 };
