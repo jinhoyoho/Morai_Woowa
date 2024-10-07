@@ -9,7 +9,6 @@ Traffic::Traffic()
     std::cout << "Traffic on" << "\n";
 }
 
-
 void Traffic::image_callBack(const sensor_msgs::ImageConstPtr& msg)
 {
     try

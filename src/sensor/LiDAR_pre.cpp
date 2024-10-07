@@ -95,7 +95,6 @@ void LiDAR_pre::cloud_callBack(const sensor_msgs::PointCloud2& msg)
    this->coord_transform();
 
    Pub2Sensor_utm(cloud_data);
-
 }
 
 void LiDAR_pre::pose_callBack(const geometry_msgs::Pose2D::ConstPtr& msg)
