@@ -1,4 +1,5 @@
 #include "Morai_Woowa/LiDAR_pre.h"
+//#include "LiDAR_pre.h"
 
 
 // 생성자
@@ -94,14 +95,12 @@ void LiDAR_pre::cloud_callBack(const sensor_msgs::PointCloud2& msg)
 
    this->coord_transform();
 
-   Pub2Sensor_utm(cloud_data);
+   Pub2Sensor_utm(transformed_cloud);
 }
 
-void LiDAR_pre::pose_callBack(const geometry_msgs::Pose2D::ConstPtr& msg)
+void LiDAR_pre::pose_callBack(const geometry_msgs::PoseStamped &msg)
 {
-    global_x_ = static_cast<float>(msg->x);
-    global_y_ = static_cast<float>(msg->y);
-    global_yaw_ = static_cast<float>(msg->theta);
+    current_pose = msg;
 }
 
 void LiDAR_pre::roi()
@@ -259,19 +258,91 @@ void LiDAR_pre::dbscan(double epsilon, int minPoints) {
 
 void LiDAR_pre::coord_transform()
 {
-    pcl::PointCloud<pcl::PointXYZI>::Ptr raw_data_p_ = cloud_data.makeShared();
+    transformed_cloud.reset(new pcl::PointCloud<pcl::PointXYZI>());
+    pcl::PointCloud<pcl::PointXYZI>::Ptr data_p_ = cloud_data.makeShared(); // Pointer
 
-    // Transform point cloud to global frame using localization data
-    Eigen::Affine3f transform = Eigen::Affine3f::Identity();
-    transform.translation() << global_x_, global_y_, 0.0;
-    transform.rotate(Eigen::AngleAxisf(global_yaw_, Eigen::Vector3f::UnitZ()));
+    // 쿼터니언으로부터 회전 행렬 생성
+    tf::Quaternion q(
+        current_pose.pose.orientation.x,
+        current_pose.pose.orientation.y,
+        current_pose.pose.orientation.z,
+        current_pose.pose.orientation.w
+    );
 
-    pcl::PointCloud<pcl::PointXYZI>::Ptr transformed_cloud(new pcl::PointCloud<pcl::PointXYZI>());
-    pcl::transformPointCloud(*raw_data_p_, *transformed_cloud, transform);
+    tf::Matrix3x3 rotation_matrix(q);
     
-    cloud_data = *transformed_cloud; 
+    // 변환 행렬을 수동으로 설정
+    Eigen::Matrix4d transform = Eigen::Matrix4d::Identity();
+    for (int i = 0; i < 3; i++) {
+        for (int j = 0; j < 3; j++) {
+            transform(i, j) = rotation_matrix[i][j];
+        }
+    }
+
+    // 위치 값 설정
+    // transform(0, 3) = static_cast<double>(current_pose.pose.position.x);
+    // transform(1, 3) = static_cast<double>(current_pose.pose.position.y);
+    // transform(2, 3) = static_cast<double>(current_pose.pose.position.z);
+
+    // 포인트 클라우드 변환
+    for (const auto& point : data_p_->points) {
+        pcl::PointXYZI transformed_point;
+
+        // 회전 변환
+        transformed_point.x = transform(0, 0) * point.x + transform(0, 1) * point.y + transform(0, 2) * point.z + current_pose.pose.position.x;//transform(0, 3);
+        transformed_point.y = transform(1, 0) * point.x + transform(1, 1) * point.y + transform(1, 2) * point.z + current_pose.pose.position.y;//transform(1, 3);
+        transformed_point.z = transform(2, 0) * point.x + transform(2, 1) * point.y + transform(2, 2) * point.z + current_pose.pose.position.z;//transform(2, 3);
+        transformed_point.intensity = point.intensity; // 강도 정보 유지
+
+        // 변환된 포인트를 클라우드에 추가
+        transformed_cloud->points.push_back(transformed_point);
+    }
+
+    transformed_cloud->width = transformed_cloud->points.size();
+    transformed_cloud->height = 1; // 비정형 포인트 클라우드
+    transformed_cloud->is_dense = false; // NaN 포인트가 있을 수 있으므로
+
+    // 변환된 포인트 클라우드 확인
+    std::cout << std::fixed << std::setprecision(10);
+
+    for (const auto& point : transformed_cloud->points) {
+        std::cout << "Transformed Point: (" << point.x << ", " << point.y << ", " << point.z << ")\n";
+    }
 }
 
+// void LiDAR_pre::coord_transform()
+// {
+
+//     transformed_cloud.reset(new pcl::PointCloud<pcl::PointfD>());
+//     pcl::PointCloud<pcl::PointXYZI>::Ptr data_p_ = cloud_data.makeShared();   // Pointer
+    
+//     Eigen::Matrix4d transform = Eigen::Matrix4d::Identity();
+
+//     tf::Quaternion q(
+//         current_pose.pose.orientation.x,
+//         current_pose.pose.orientation.y,
+//         current_pose.pose.orientation.z,
+//         current_pose.pose.orientation.w
+//     );
+
+//     tf::Matrix3x3 rotation_matrix(q);
+
+//     for(int i = 0; i<3; i++){
+//         for(int j = 0; j<3; j++){
+//             transform(i,j) = rotation_matrix[i][j];
+//         }
+//     }
+//     // Ensure values are converted to double
+//     transform(0, 3) = static_cast<double>(current_pose.pose.position.x);
+//     transform(1, 3) = static_cast<double>(current_pose.pose.position.y);
+//     transform(2, 3) = static_cast<double>(current_pose.pose.position.z);
+
+// // std::cout << std::fixed << std::setprecision(10); // 소수점 이하 10자리까지 출력
+// // std::cout << transform(0, 3) << " " << transform(1, 3) << std::endl;
+
+//     pcl::transformPointCloud(*data_p_, *transformed_cloud, transform);
+
+// }
 
 // int main(int argc, char** argv)
 // {

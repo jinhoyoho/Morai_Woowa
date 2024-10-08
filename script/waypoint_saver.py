@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 
 import rospy
-from geometry_msgs.msg import Pose2D
+from geometry_msgs.msg import PoseStamped
 import pandas as pd
 import math
 import matplotlib.pyplot as plt
@@ -14,14 +14,14 @@ class PoseSaver:
         self.path_name = "test_path.csv"
         self.save_directory = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), 'path')
 
-        self.pose_sub = rospy.Subscriber('current_pose', Pose2D, self.pose_callback)
+        self.pose_sub = rospy.Subscriber('current_pose', PoseStamped, self.pose_callback)
 
         self.pose_data = []
         self.last_saved_pose = None
         self.index = 0
 
     def pose_callback(self, msg):
-        current_pose = (msg.x, msg.y, msg.theta)
+        current_pose = (msg.pose.position.x, msg.pose.position.y, msg.pose.position.z)
 
         if self.last_saved_pose is None:
             self.last_saved_pose = current_pose
