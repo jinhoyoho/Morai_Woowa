@@ -24,7 +24,7 @@ class IMGParser:
 
         # file의 directory 경로
         current_dir = os.path.dirname(os.path.abspath(__file__))
-        model_path = os.path.join(current_dir, "yolov10n.pt")
+        model_path = os.path.join(current_dir, "yolov10m.pt")
 
         # YOLO 모델을 현재 경로에서 불러옵니다.
         model = YOLO(model_path)
@@ -100,9 +100,10 @@ class IMGParser:
 
                         self.traffic_image_pub.publish(self.br.cv2_to_imgmsg(traffic_image_copy))
 
-                # cv2.imshow("Image window", self.img_bgr)
-                # if cv2.waitKey(1) == ord('q'):
-                #     break
+                img = results[0].plot()
+                cv2.imshow("Image window", img)
+                if cv2.waitKey(1) == ord('q'):
+                    break
 
             rate.sleep()
 
