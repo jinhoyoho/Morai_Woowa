@@ -3,6 +3,7 @@
 Traffic::Traffic()
 {
     flag = false; // flag false로 생성
+    redFlag = false;    // 빨간 신호등을 보았는가요?
     count = 0;
     ros::NodeHandle nh;
     image_sub = nh.subscribe("traffic_image", 1, &Traffic::image_callBack, this);
@@ -51,20 +52,24 @@ void Traffic::process_image()
         cv::Mat redMask;
         cv::inRange(hsvImage_red, lowerRed, upperRed, redMask);
 
-        // 초록색 픽셀 수 카운트
-        int greenPixelCount = cv::countNonZero(greenMask);
+
+        // 전체 픽셀 개수
         int totalPixelCount = hsvImage_green.rows * hsvImage_green.cols;
 
+
+        // 초록색 픽셀 수 카운트
+        int greenPixelCount = cv::countNonZero(greenMask);
         // 초록색 비율 계산
         double greenRatio = static_cast<double>(greenPixelCount) / totalPixelCount;
 
         // 빨간색 픽셀 수 카운트
         int redPixelCount = cv::countNonZero(redMask);
-
         // 빨간색 비율 계산
         double redRatio = static_cast<double>(redPixelCount) / totalPixelCount;
 
-        if(greenRatio > redRatio)   // 초록색이 더 크다면
+        
+        // 초록색이 더 크다면
+        if(greenRatio > redRatio)   
         {
             mvf.push_back(GO);  // 출발 
             count++;    // 개수 증가
@@ -75,28 +80,34 @@ void Traffic::process_image()
             count++;
         }
 
-        std::cout << "count: " << count << "\n";
-        for (const auto& value : mvf)
-        {
-            std::cout << value << " " ;
-        }
-        std::cout << "\n";
 
         if (count >= 10)    // 10개가 쌓였다면
         {
             double sum = std::accumulate(mvf.begin(), mvf.end(), 0); // 초기값은 0
             sum = sum / count; // 개수만큼 나누기
 
-            std::cout << "sum: " << sum << "\n";
+            mvf.erase(mvf.begin());  // 맨 앞 요소 삭제
+            count--;
+
 
             if(sum >= 0.5) // 5개만 넘어도 출발
             {
-                ROS_INFO("GO!");
-                flag = true;
-            }
+                // 빨간 신호등을 봐야 출발
+                if(redFlag)
+                {
+                    ROS_INFO("GO!");
+                    
+                    flag = true;        // 출발 플래그 publish 해줘야 함
+                    redFlag = false;    // 다시 빨간 신호등을 봐야 출발
 
-            mvf.erase(mvf.begin());  // 맨 앞 요소 삭제
-            count--;
+                    mvf.clear();    // 모든 벡터 지우기
+                    count = 0;      // 개수는 0
+                }
+            }
+            else
+            {
+                redFlag = true;
+            }
         }
 
     }

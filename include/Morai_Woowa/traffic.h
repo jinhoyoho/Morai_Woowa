@@ -15,6 +15,7 @@ class Traffic
 {
     private:
         bool flag;  // 출발 플래그
+        bool redFlag; // 빨간색을 보았는가
         cv::Mat frame; // 이미지
         ros::Subscriber image_sub;
         ros::Subscriber object_sub;
