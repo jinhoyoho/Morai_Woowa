@@ -80,6 +80,12 @@ target_link_libraries(obstacle_tracking
   ${PCL_LIBRARIES}
 )
 
+add_executable(dwa src/planning/dwa.cpp)
+target_link_libraries(dwa
+  ${catkin_LIBRARIES}
+  ${PCL_LIBRARIES}
+)
+
 ##from jimin
 add_executable(state_node src/state_node.cpp)
 target_link_libraries(state_node ${catkin_LIBRARIES})
