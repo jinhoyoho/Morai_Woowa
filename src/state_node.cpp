@@ -153,34 +153,34 @@ public:
         publishWaypoints(waypoints_2_);
         publishWaypoints(waypoints_3_);
     }
-        void publishPath(const path& waypoints) {
-        // nav_msgs::Path 메시지 생성
-        nav_msgs::Path path_msg;
-        path_msg.header.frame_id = "map"; // 사용할 프레임
-        path_msg.header.stamp = ros::Time::now();
+    void publishPath(const path& waypoints) {
+    // nav_msgs::Path 메시지 생성
+    nav_msgs::Path path_msg;
+    path_msg.header.frame_id = "map"; // 사용할 프레임
+    path_msg.header.stamp = ros::Time::now();
 
-        for (const auto& waypoint : waypoints) {
-            geometry_msgs::PoseStamped pose_stamped;
-            pose_stamped.header.frame_id = "map";
-            pose_stamped.header.stamp = ros::Time::now();
-            
-            pose_stamped.pose.position.x = waypoint.x;
-            pose_stamped.pose.position.y = waypoint.y;
-            pose_stamped.pose.position.z = 0;
+    for (const auto& waypoint : waypoints) {
+        geometry_msgs::PoseStamped pose_stamped;
+        pose_stamped.header.frame_id = "map";
+        pose_stamped.header.stamp = ros::Time::now();
+        
+        pose_stamped.pose.position.x = waypoint.x;
+        pose_stamped.pose.position.y = waypoint.y;
+        pose_stamped.pose.position.z = 0;
 
-            // heading 정보를 쿼터니언으로 변환
-            tf::Quaternion q = tf::createQuaternionFromYaw(waypoint.heading);
-            pose_stamped.pose.orientation.x = q.x();
-            pose_stamped.pose.orientation.y = q.y();
-            pose_stamped.pose.orientation.z = q.z();
-            pose_stamped.pose.orientation.w = q.w();
+        // heading 정보를 쿼터니언으로 변환
+        tf::Quaternion q = tf::createQuaternionFromYaw(waypoint.heading);
+        pose_stamped.pose.orientation.x = q.x();
+        pose_stamped.pose.orientation.y = q.y();
+        pose_stamped.pose.orientation.z = q.z();
+        pose_stamped.pose.orientation.w = q.w();
 
-            path_msg.poses.push_back(pose_stamped);
-        }
+        path_msg.poses.push_back(pose_stamped);
+    }
 
-        // 퍼블리시 (경로 추적에 사용)
-        path_pub_.publish(path_msg);
-        }
+    // 퍼블리시 (경로 추적에 사용)
+    path_pub_.publish(path_msg);
+    }
     void publishWaypoints(path waypoints) {
 
         visualization_msgs::Marker marker;
