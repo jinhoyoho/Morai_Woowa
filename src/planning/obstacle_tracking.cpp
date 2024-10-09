@@ -36,7 +36,8 @@ void removeSmallClusters();
 int main(int argc, char **argv){
     ros::init(argc, argv, "obstacle_tracking");
     ros::NodeHandle nh;
-    ros::Subscriber cluster_sub = nh.subscribe("clustered_points", 10, cluster_callback);
+    // ros::Subscriber cluster_sub = nh.subscribe("clustered_points", 10, cluster_callback);
+    ros::Subscriber cluster_sub = nh.subscribe("lidar_utm", 10, cluster_callback);
     ros::Publisher marker_array_pub = nh.advertise<visualization_msgs::MarkerArray>("visualization_marker_array", 10);
     ros::Publisher obstacle_pub = nh.advertise<sensor_msgs::PointCloud2>("obstacle", 10);
     ros::Rate loop_rate(10);

@@ -1,6 +1,7 @@
 #include <ros/ros.h>
 #include <sensor_msgs/PointCloud.h>
 #include <geometry_msgs/Point32.h>
+#include <geometry_msgs/Pose2D.h>
 #include <vector>
 #include <memory>
 #include <pcl/point_cloud.h>
@@ -22,6 +23,7 @@ const double PI = 3.1415926;
 void make_global_path();
 double calculateDistance(const std::vector<double>& point1, const std::vector<double>& point2);
 void obstacle_callback(const sensor_msgs::PointCloud2::ConstPtr& msg);
+void pose_callback(const geometry_msgs::Pose2D::ConstPtr& msg);
 void make_candidate_path(std::shared_ptr<std::vector<std::vector<std::vector<double>>>> candidate_path_ptr);
 void vote_president_path(std::shared_ptr<std::vector<std::vector<std::vector<double>>>> candidate_path_ptr);
 void make_msg(std::shared_ptr<std::vector<std::vector<std::vector<double>>>> candidate_path_ptr, 
@@ -29,6 +31,7 @@ void make_msg(std::shared_ptr<std::vector<std::vector<std::vector<double>>>> can
              std::shared_ptr<sensor_msgs::PointCloud> candidate_msg_ptr, std::shared_ptr<sensor_msgs::PointCloud> president_msg_ptr);
 
 auto obstacle_ptr = std::make_shared<std::vector<std::vector<double>>>();
+auto pose_ptr = std::make_shared<std::vector<double>>(3);
 auto global_path_ptr = std::make_shared<std::vector<std::vector<double>>>();
 auto president_path_ptr = std::make_shared<std::vector<std::vector<double>>>();
 pcl::PointCloud<pcl::PointXYZI>::Ptr cloud_ptr(new pcl::PointCloud<pcl::PointXYZI>());
@@ -41,6 +44,7 @@ int main(int argc, char **argv){
     ros::Publisher candidate_pub = nh.advertise<sensor_msgs::PointCloud>("candidate_path", 100);
     ros::Publisher president_pub = nh.advertise<sensor_msgs::PointCloud>("president_path", 100);
     ros::Subscriber obstacle_sub = nh.subscribe("obstacle", 100, obstacle_callback);
+    ros::Subscriber pose_sub = nh.subscribe("current_pose", 100, pose_callback);
 
 
     auto candidate_path_ptr = std::make_shared<std::vector<std::vector<std::vector<double>>>>();
@@ -67,6 +71,14 @@ void obstacle_callback(const sensor_msgs::PointCloud2::ConstPtr& msg){
     pcl::fromROSMsg(*msg, *cloud_ptr);
 }
 
+void pose_callback(const geometry_msgs::Pose2D::ConstPtr& msg){
+    pose_ptr->clear();
+    pose_ptr->resize(3);
+    pose_ptr->at(0) = msg->x;
+    pose_ptr->at(1) = msg->y;
+    pose_ptr->at(2) = msg->theta;
+}
+
 void make_global_path(){
     auto global_path_len = 5.0;
     global_path_ptr->clear();
@@ -82,11 +94,13 @@ void make_global_path(){
 void make_candidate_path(std::shared_ptr<std::vector<std::vector<std::vector<double>>>> candidate_path_ptr){
     auto av_gap = 2 * angular_velocity / (num_of_path - 1);
 
+    candidate_path_ptr->push_back(*global_path_ptr);
+
     for(int i = 0; i < num_of_path; i++){
         std::vector<std::vector<double>> candidate_i;
-        auto current_angular_velocity = angular_velocity - av_gap * i;
+        auto current_angular_velocity = angular_velocity - av_gap * i + pose_ptr->at(2);
         for(int j = 0; j < predict_time * 10; j++){
-            std::vector<double> candidate_element = {velocity * j * 0.1 * std::cos(current_angular_velocity * j * 0.1), velocity * j * 0.1 * std::sin(current_angular_velocity * j * 0.1), 0.0};
+            std::vector<double> candidate_element = {pose_ptr->at(0) + velocity * j * 0.1 * std::cos(current_angular_velocity * j * 0.1), pose_ptr->at(1) + velocity * j * 0.1 * std::sin(current_angular_velocity * j * 0.1), 0.0};
             candidate_i.push_back(candidate_element); 
         }
         candidate_path_ptr->push_back(candidate_i); 
@@ -98,7 +112,7 @@ void vote_president_path(std::shared_ptr<std::vector<std::vector<std::vector<dou
     obstacle_ptr->clear();
     obstacle_ptr->resize(cloud_ptr->size());
 
-    for(int i =0; i < num_of_path; i++){
+    for(int i =0; i < num_of_path + 1; i++){
         double current_cost = 0.0;
         auto current_candidate = candidate_path_ptr->at(i);
         for(int j = 0; j < predict_time * 10; j++){
@@ -115,7 +129,6 @@ void vote_president_path(std::shared_ptr<std::vector<std::vector<std::vector<dou
                 }
                 // current_cost += obstacle_cost / std::pow(distance, 2);
             }
-            // current_cost = current_cost / obstacle_ptr->size();
 
             // path cost
             double distance;
@@ -123,11 +136,21 @@ void vote_president_path(std::shared_ptr<std::vector<std::vector<std::vector<dou
                 distance = calculateDistance(current_candidate.at(j), global_path_ptr->at(j));
             }
             else{
-                distance = calculateDistance(current_candidate.at(j), global_path_ptr->at(-1));
+                distance = calculateDistance(current_candidate.back(), global_path_ptr->back());
             }
             current_cost += global_path_cost * std::pow(distance, 1);
-        }
+            }
+
+
+
         std::cout<<i<<" cost: "<<current_cost<<std::endl;
+
+        if(i == 0 & current_cost < 9999){
+            best_idx = i;
+            best_cost = current_cost;
+            break;
+        }
+
         if(current_cost < best_cost){
             best_idx = i;
             best_cost = current_cost;

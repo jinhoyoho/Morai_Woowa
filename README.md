@@ -47,3 +47,19 @@ type : sensor_msgs/PointCloud2<br/>
 name : /lidar_utm<br/>
 type : sensor_msgs/PointCloud2<br/>
 설명 : 전처리된 pcl데이터를 utm_k 좌표계로 좌표계 변경<br/>
+<br/>
+name : /obstacle<br/>
+type : sensor_msgs/PointCloud2<br/>
+설명 : 장해물의 위치와 속도를 나타내는 토픽 x,y는 장애물의 중심 좌표이고 z, intensity는 각각 장애물의 x,y축 속도이다.<br/>
+<br/>
+name : /visualization_marker_array<br/>
+type : visualization_msgs/MarkerArray<br/>
+설명 : obstacle 토픽의 장애물 벡터를 화살표로 나타낸 시각화용 토픽<br/>
+<br/>
+name : /candidate_path<br/>
+type : sensor_msgs/PointCloud<br/>
+설명 : dwa가 생성한 후보경로, 시각화용<br/>
+<br/>
+name : /president_path<br/>
+type : sensor_msgs/PointCloud<br/>
+설명 : dwa로 결정한 최적 경로. local path가 된다.<br/>
