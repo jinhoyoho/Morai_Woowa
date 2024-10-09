@@ -1,10 +1,10 @@
 <launch>
-    <arg name="wpt_path" default="$(find Morai_Woowa)/path/test_path.csv" />
+    <arg name="wpt_path" default="$(find morai_woowa)/path/test_path.csv" />
     
-    <node name="visualize" pkg="Morai_Woowa" type="visualize" output="screen">
+    <node name="visualize" pkg="morai_woowa" type="visualize" output="screen">
         <param name="/waypoint_file" value="$(arg wpt_path)"/>
     </node>
 
-    <node pkg="rviz" type="rviz" name="rviz1" args="-d $(find Morai_Woowa)/rviz/visual.rviz" output="screen"/>
+    <node pkg="rviz" type="rviz" name="rviz1" args="-d $(find morai_woowa)/rviz/visual.rviz" output="screen"/>
 
 </launch>

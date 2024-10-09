@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.0.2)
-project(Morai_Woowa)
+project(morai_woowa)
 
 find_package(catkin REQUIRED COMPONENTS
   morai_msgs
@@ -49,7 +49,7 @@ generate_messages(
 
 catkin_package(
 #  INCLUDE_DIRS include
-  LIBRARIES Morai_Woowa
+  LIBRARIES morai_woowa
   CATKIN_DEPENDS morai_msg roscpp rospy stds_msg message_runtime pcl_conversions pcl_ros
 #  DEPENDS system_lib
 )

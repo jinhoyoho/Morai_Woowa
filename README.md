@@ -2,24 +2,24 @@
 R-BIZ Challenge:배달의 민족 로봇배달 챌린지
 
 ### /current_pose 생성
-rosrun Morai_Woowa location.py 
+rosrun morai_woowa location.py 
 
 ### way_point 저장
-rosrun Morai_Woowa waypoint_saver.py 
+rosrun morai_woowa waypoint_saver.py 
 <br/><br/>
 path폴더 안에 생성됨. 파일 이름 바꾸기!!
 
 ### state_node 실행
-roslaunch Morai_Woowa state.launch
+roslaunch morai_woowa state.launch
 <br/>
 or
 <br/>
-rosrun Morai_Woowa state_node 
+rosrun morai_woowa state_node 
 <br/><br/>
 코드 혹은 런치파일에 로드할 경로 이름 바꾸기!!
 
 ### visual 실행
-roslaunch Morai_Woowa visual.launch
+roslaunch morai_woowa visual.launch
 <br/><br/>
 런치파일에 로드할 경로 이름 바꾸기!!
 

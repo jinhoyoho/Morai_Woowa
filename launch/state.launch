@@ -1,8 +1,17 @@
 <launch>
-    <arg name="wpt_path" default="$(find Morai_Woowa)/path/test_path.csv" />
+    <arg name="wpt_path1" default="$(find morai_woowa)/path/test_path.csv" />
+    <arg name="wpt_path2" default="$(find morai_woowa)/path/test_path.csv" />
+    <arg name="wpt_path3" default="$(find morai_woowa)/path/test_path.csv" />
 
-    <node name="state_node" pkg="Morai_Woowa" type="state_node" output="screen">
-       <param name="/waypoint_file" value="$(arg wpt_path)"/>
+    <node name="location.py" pkg="morai_woowa" type="location.py" output="screen">
     </node>
+
+    <node name="state_node" pkg="morai_woowa" type="state_node" output="screen">
+       <param name="/waypoint_file1" value="$(arg wpt_path1)"/>
+       <param name="/waypoint_file2" value="$(arg wpt_path2)"/>
+       <param name="/waypoint_file3" value="$(arg wpt_path3)"/>
+    </node>
+
+    <node pkg="rviz" type="rviz" name="rviz1" args="-d $(find morai_woowa)/rviz/visual.rviz" output="screen"/>
 
 </launch>

@@ -1,6 +1,11 @@
 #include <ros/ros.h>
 #include <sensor_msgs/PointCloud2.h>
-#include <geometry_msgs/Pose2D.h>
+#include <geometry_msgs/PoseStamped.h>
+#include <tf/transform_listener.h>
+#include <tf2/exceptions.h>
+#include <tf2_ros/transform_listener.h>
+#include <tf2/transform_datatypes.h>
+
 
 #include <pcl/conversions.h>
 #include <pcl/point_cloud.h>
@@ -28,7 +33,8 @@ public:
 
     // 라이다 처리 함수
     void cloud_callBack(const sensor_msgs::PointCloud2& msg);
-    void pose_callBack(const geometry_msgs::Pose2D::ConstPtr& msg);
+    
+    void pose_callBack(const geometry_msgs::PoseStamped& msg);
 
     // overload
     // Pointer를 Sensor msgs로 바꾸는 함수
@@ -56,13 +62,13 @@ private:
     // const sensor_msgs::PointCloud2ConstPtr& input;
     ros::Subscriber point_sub_;
     ros::Subscriber pose_sub_;
+
     ros::Publisher pub;
     ros::Publisher pub_utm_pcl;
 
     pcl::PCLPointCloud2 pcl_pc;
     pcl::PointCloud<pcl::PointXYZI> cloud_data; // pointCloud를 받아서 PointXYZI로 변환
+    pcl::PointCloud<pcl::PointXYZI>::Ptr transformed_cloud; 
 
-    float global_x_;
-    float global_y_;
-    float global_yaw_;
+    geometry_msgs::PoseStamped current_pose;
 };

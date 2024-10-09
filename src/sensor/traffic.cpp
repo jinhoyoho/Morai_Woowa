@@ -3,34 +3,24 @@
 Traffic::Traffic()
 {
     flag = false; // flag false로 생성
+    redFlag = false;    // 빨간 신호등을 보았는가요?
+    count = 0;
     ros::NodeHandle nh;
-    image_sub = nh.subscribe("python_image", 1, &Traffic::image_callBack, this);
-    object_sub = nh.subscribe("detected_object", 1, &Traffic::object_callBack, this);
+    image_sub = nh.subscribe("traffic_image", 1, &Traffic::image_callBack, this);
     std::cout << "Traffic on" << "\n";
 }
-
-void Traffic::object_callBack(const Morai_Woowa::obj_info::ConstPtr& msg)
-{
-    std::string class_name = msg->name;
-
-    if (class_name == "traffic light")  // 신호등 일때만 처리
-    {
-        int vert = std::abs(msg->ymin - msg->ymax); // 세로
-        int hori = std::abs(msg->xmax - msg->xmin); // 가로
-        
-        if(vert > hori) // 가로보다 세로가 더 길어야 함
-        {
-            this->process_image(msg->xmin, msg->xmax, msg->ymin, msg->ymax);
-        }
-    }
-}
-
 
 void Traffic::image_callBack(const sensor_msgs::ImageConstPtr& msg)
 {
     try
     {
-        frame = cv::Mat(msg->height, msg->width, CV_8UC3, const_cast<unsigned char*>(msg->data.data()), msg->step);
+        if(msg)
+        {
+            frame = cv::Mat(msg->height, msg->width, CV_8UC3, const_cast<unsigned char*>(msg->data.data()), msg->step);
+            cv::imshow("traffic image", frame);
+            if (cv::waitKey(10) == 27) exit(1);  // esc키로 종료
+            this->process_image();
+        }
     }
     catch (cv_bridge::Exception& e)
     {
@@ -39,70 +29,87 @@ void Traffic::image_callBack(const sensor_msgs::ImageConstPtr& msg)
     }
 }
 
-void Traffic::process_image(int xmin, int xmax, int ymin, int ymax)
+void Traffic::process_image()
 {
     try{
-        cv::Rect rect(xmin, ymin,  std::abs(xmax - xmin), std::abs(ymin - ymax)); // X, Y, W, H
-        cv::Mat subImage = frame(rect); // 자르기
+        // BGR 이미지를 HSV로 변환
+        cv::Mat hsvImage_red;
+        cv::Mat hsvImage_green;
+        cv::cvtColor(frame, hsvImage_red, cv::COLOR_BGR2HSV);
+        cv::cvtColor(frame, hsvImage_green, cv::COLOR_BGR2HSV);
 
-        // RGB로 색상 구분하기
+        // 초록색 범위 정의 (HSV)
+        cv::Scalar lowerGreen(40, 15, 170); // 낮은 초록색 범위
+        cv::Scalar upperGreen(70, 70, 255); // 높은 초록색 범위
 
-        // // BGR 이미지를 HSV로 변환
-        // cv::Mat hsvImage;
-        // cv::cvtColor(subImage, hsvImage, cv::COLOR_BGR2HSV);
+        cv::Scalar lowerRed(0, 0, 70); // 낮은 빨간색 범위
+        cv::Scalar upperRed(25, 160, 255); // 높은 빨간색 범위
 
-        // // 초록색 범위 정의 (HSV)
-        // cv::Scalar lowerGreen(35, 100, 100); // 낮은 초록색 범위
-        // cv::Scalar upperGreen(85, 255, 255); // 높은 초록색 범위
+        // 초록색 픽셀 마스크 생성
+        cv::Mat greenMask;
+        cv::inRange(hsvImage_green, lowerGreen, upperGreen, greenMask);
 
-        // // 초록색 픽셀 마스크 생성
-        // cv::Mat greenMask;
-        // cv::inRange(hsvImage, lowerGreen, upperGreen, greenMask);
-
-        // // 초록색 픽셀 수 카운트
-        // int greenPixelCount = cv::countNonZero(greenMask);
-        // int totalPixelCount = subImage.rows * subImage.cols;
-
-        // // 초록색 비율 계산
-        // double greenRatio = static_cast<double>(greenPixelCount) / totalPixelCount;
+        cv::Mat redMask;
+        cv::inRange(hsvImage_red, lowerRed, upperRed, redMask);
 
 
-         // 초록색 범위 정의 (RGB)
-        int lowerGreenR = 0;   // Red 최소값
-        int lowerGreenG = 100; // Green 최소값
-        int lowerGreenB = 0;   // Blue 최소값
+        // 전체 픽셀 개수
+        int totalPixelCount = hsvImage_green.rows * hsvImage_green.cols;
 
-        int upperGreenR = 100; // Red 최대값
-        int upperGreenG = 255; // Green 최대값
-        int upperGreenB = 100; // Blue 최대값
 
         // 초록색 픽셀 수 카운트
-        int greenPixelCount = 0;
-        int totalPixelCount = subImage.rows * subImage.cols;
-
-        // RGB 이미지에서 초록색 픽셀 수 계산
-        for (int y = 0; y < subImage.rows; ++y) {
-            for (int x = 0; x < subImage.cols; ++x) {
-                cv::Vec3b color = subImage.at<cv::Vec3b>(y, x); // 픽셀 색상 가져오기
-                // 초록색 범위 확인
-                if (color[2] >= lowerGreenR && color[1] >= lowerGreenG && color[0] <= upperGreenB &&
-                    color[2] <= upperGreenR && color[1] <= upperGreenG && color[0] >= lowerGreenB) {
-                    greenPixelCount++;
-                }
-            }
-        }
-
+        int greenPixelCount = cv::countNonZero(greenMask);
         // 초록색 비율 계산
         double greenRatio = static_cast<double>(greenPixelCount) / totalPixelCount;
 
-        if (greenRatio > 0) // 초록불이면 가라
+        // 빨간색 픽셀 수 카운트
+        int redPixelCount = cv::countNonZero(redMask);
+        // 빨간색 비율 계산
+        double redRatio = static_cast<double>(redPixelCount) / totalPixelCount;
+
+        
+        // 초록색이 더 크다면
+        if(greenRatio > redRatio)   
         {
-            flag = true;    // 고고고 -> topic으로 주고받는게 나을 것 같음
-            ROS_INFO("GO!");
+            mvf.push_back(GO);  // 출발 
+            count++;    // 개수 증가
+        }
+        else if (redRatio > greenRatio)
+        {
+            mvf.push_back(STOP);    //  멈춰!
+            count++;
         }
 
-        // cv::imshow("Traffic Image", subImage);
-        // if (cv::waitKey(10) == 27) exit(1);  // esc키로 종료
+
+        if (count >= 10)    // 10개가 쌓였다면
+        {
+            double sum = std::accumulate(mvf.begin(), mvf.end(), 0); // 초기값은 0
+            sum = sum / count; // 개수만큼 나누기
+
+            mvf.erase(mvf.begin());  // 맨 앞 요소 삭제
+            count--;
+
+
+            if(sum >= 0.5) // 5개만 넘어도 출발
+            {
+                // 빨간 신호등을 봐야 출발
+                if(redFlag)
+                {
+                    ROS_INFO("GO!");
+                    
+                    flag = true;        // 출발 플래그 publish 해줘야 함
+                    redFlag = false;    // 다시 빨간 신호등을 봐야 출발
+
+                    mvf.clear();    // 모든 벡터 지우기
+                    count = 0;      // 개수는 0
+                }
+            }
+            else
+            {
+                redFlag = true;
+            }
+        }
+
     }
     catch (cv_bridge::Exception& e)
     {
