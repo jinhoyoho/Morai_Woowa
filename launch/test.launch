@@ -1,9 +1,9 @@
 <launch>
     <!-- dynamic_obstacle 노드 실행 -->
     <!-- <node pkg="baemin" type="dynamic_obstacle" name="dynamic_obstacle" output="screen"/> -->
-    <node pkg="baemin" type="dwa" name="dwa" output="screen"/>
-    <node pkg="baemin" type="lidar_db" name="lidar_db" output="screen"/>
-    <node pkg="baemin" type="obstacle_tracking" name="obstacle_tracking" output="screen"/>
+    <node pkg="Morai_Woowa" type="dwa" name="dwa" output="screen"/>
+    <node pkg="Morai_Woowa" type="lidar_db" name="lidar_db" output="screen"/>
+    <node pkg="Morai_Woowa" type="obstacle_tracking" name="obstacle_tracking" output="screen"/>
 
     <!-- rviz 실행 -->
     <node pkg="rviz" type="rviz" name="rviz1" args="-d $(find morai_woowa)/rviz/dynamic_obstacle.rviz" output="screen"/>
