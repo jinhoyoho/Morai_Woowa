@@ -6,6 +6,6 @@
     <node pkg="baemin" type="obstacle_tracking" name="obstacle_tracking" output="screen"/>
 
     <!-- rviz 실행 -->
-    <node pkg="rviz" type="rviz" name="rviz1" args="-d $(find baemin)/rviz/dynamic_obstacle.rviz" output="screen"/>
+    <node pkg="rviz" type="rviz" name="rviz1" args="-d $(find morai_woowa)/rviz/dynamic_obstacle.rviz" output="screen"/>
     <!-- <node pkg="rviz" type="rviz" name="rviz2" args="-d $(find baemin)/rviz/dwa.rviz" output="screen"/> -->
 </launch>
