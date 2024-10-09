@@ -2,6 +2,9 @@
 #include <ros/package.h>  
 #include <geometry_msgs/PoseStamped.h>
 #include <visualization_msgs/Marker.h>
+#include <morai_msgs/SkidSteer6wUGVCtrlCmd.h>
+#include <nav_msgs/Path.h>
+#include <tf/transform_datatypes.h> // tf를 사용하여 쿼터니언 변환
 
 #include <vector>
 #include <fstream>
@@ -20,15 +23,93 @@ struct Waypoint {
 };
 
 typedef std::vector<Waypoint> path;
+class PurePursuit {
+public:
+    PurePursuit() : wheel_base(0.6), lfd(2.0), steering(0), is_look_forward_point(false) {}
+
+    // 경로를 UTMK 좌표계로 설정
+    void getPath(const nav_msgs::Path& msg) {
+        waypoint_path.clear(); // 기존 경로 초기화
+        for (const auto& pose : msg.poses) {
+            Waypoint wp;
+            wp.x = pose.pose.position.x;
+            wp.y = pose.pose.position.y;
+            wp.heading = tf::getYaw(pose.pose.orientation);  // 경로의 heading을 yaw로 변환
+            waypoint_path.push_back(wp);
+        }
+    }
+    void getEgoStatus(const geometry_msgs::PoseStamped& ego_status, double current_vel) {
+        current_position.x = ego_status.pose.position.x;
+        current_position.y = ego_status.pose.position.y;
+        
+        // Quaternion to yaw
+        tf::Quaternion q(
+            ego_status.pose.orientation.x,
+            ego_status.pose.orientation.y,
+            ego_status.pose.orientation.z,
+            ego_status.pose.orientation.w
+        );
+        tf::Matrix3x3 m(q);
+        double roll, pitch;
+        m.getRPY(roll, pitch, vehicle_yaw);  // vehicle_yaw in radians
+        this->current_vel = current_vel;  // Velocity in kph
+    }
+
+    double steering_angle(double lfd_input) {
+        lfd = lfd_input;  // Look-forward distance
+
+        is_look_forward_point = false;
+        geometry_msgs::Point rotated_point;
+
+        for (const auto& wp : waypoint_path) {
+            // 좌표 변환: 로봇 기준으로 경로점 위치 변환
+            double dx = wp.x - current_position.x;
+            double dy = wp.y - current_position.y;
+
+            rotated_point.x = cos(vehicle_yaw) * dx + sin(vehicle_yaw) * dy;
+            rotated_point.y = sin(vehicle_yaw) * dx - cos(vehicle_yaw) * dy;
+
+            if (rotated_point.x > 0) {
+                double dis = sqrt(pow(rotated_point.x, 2) + pow(rotated_point.y, 2));
+                if (dis >= lfd) {
+                    forward_point = wp;
+                    is_look_forward_point = true;
+                    break;
+                }
+            }
+        }
+
+        // 스티어링 각도 계산
+        if (is_look_forward_point) {
+            double theta = atan2(rotated_point.y, rotated_point.x);
+            steering = atan2(2 * wheel_base * sin(theta), lfd) * 180.0 / M_PI;
+        } else {
+            steering = 0;
+        }
+
+        return steering;
+    }
+
+private:
+    Waypoint forward_point;
+    geometry_msgs::Point current_position;
+    double vehicle_yaw;
+    double current_vel;
+    double wheel_base;
+    double lfd;
+    double steering;
+    bool is_look_forward_point;
+    path waypoint_path;
+};
 
 class StateNode {
 public:
     StateNode() : closest_index_(-1) {
 
-        // path폴더안에 path파일 이름!!!!!
-        // std::string filename = "test_path.csv";
-        // std::string current_path = ros::package::getPath("Morai_Woowa"); // 패키지 경로를 가져옵니다
-        // waypoint_file_ = current_path + "/path/" + filename;
+        //path폴더안에 path파일 이름!!!!!
+        //std::string filename = "test_path.csv";
+        //std::string current_path = ros::package::getPath("morai_woowa"); // 패키지 경로를 가져옵니다
+        //waypoint_file_ = current_path + "/path/" + filename;
 
         nh_.param<std::string>("/state_node/waypoint_file1", waypoint_file_1_, "waypoints.csv");
         nh_.param<std::string>("/state_node/waypoint_file2", waypoint_file_2_, "waypoints.csv");
@@ -37,12 +118,14 @@ public:
 
         current_pose_sub_ = nh_.subscribe("/current_pose", 10, &StateNode::currentPoseCallback, this);
         waypoint_marker_pub_ = nh_.advertise<visualization_msgs::Marker>("/globalpath", 10, this);
-
+        ctrl_cmd_pub= nh_.advertise<morai_msgs::SkidSteer6wUGVCtrlCmd>("/6wheel_skid_ctrl_cmd", 10); // Skid-Steer Control Publisher
 
         loadWaypoints(waypoint_file_1_, waypoints_1_);  // waypoint 파일에서 로드
         loadWaypoints(waypoint_file_2_, waypoints_2_);  // waypoint 파일에서 로드
         loadWaypoints(waypoint_file_3_, waypoints_3_);  // waypoint 파일에서 로드
     }
+    PurePursuit pure_pursuit;
+    ros::Publisher ctrl_cmd_pub;
 
     void currentPoseCallback(const geometry_msgs::PoseStamped::ConstPtr& msg) {
 
@@ -96,7 +179,26 @@ public:
         while (ros::ok()) {
 
             ////// 여기다 실행할 함수 //////
+        if (closest_index_ != -1) {
+                // Pure Pursuit Logic and Control Commands
+                double lfd = 2.0;
+                double steering_angle = pure_pursuit.steering_angle(lfd);
+                double target_linear_velocity = 2.0;  
+                double target_angular_velocity = steering_angle * M_PI / 180.0;
 
+                morai_msgs::SkidSteer6wUGVCtrlCmd ctrl_cmd_msg;
+                ctrl_cmd_msg.cmd_type = 1;
+                ctrl_cmd_msg.Forward_input = true;
+                ctrl_cmd_msg.Backward_input = false;
+                ctrl_cmd_msg.Left_Turn_input = false;
+                ctrl_cmd_msg.Right_Turn_input = false;
+                ctrl_cmd_msg.Target_linear_velocity = target_linear_velocity;  
+                ctrl_cmd_msg.Target_angular_velocity = target_angular_velocity;
+
+                ctrl_cmd_pub.publish(ctrl_cmd_msg);  // Publish Control Command
+
+                ROS_INFO("Publishing Control Command: Linear Velocity: %.2f, Angular Velocity: %.2f", target_linear_velocity, target_angular_velocity);
+            }
             ROS_INFO("closest_index: %d", closest_index_);
 
 
