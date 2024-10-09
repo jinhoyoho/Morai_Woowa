@@ -4,7 +4,7 @@ import rospy
 from geometry_msgs.msg import PoseStamped
 from morai_msgs.msg import GPSMessage
 from sensor_msgs.msg import Imu
-import pyproj
+from pyproj import Proj
 import tf
 import math
 
@@ -18,8 +18,7 @@ class GPSToUTM:
         self.imu_sub = rospy.Subscriber('/imu', Imu, self.imu_callback)
 
         # Proj 초기화
-        self.proj_WGS84 = pyproj.Proj(init='epsg:4326')  # WGS84
-        self.proj_UTMK = pyproj.Proj(init='epsg:5179')   # UTM-K
+        self.proj_UTM = Proj(proj='utm', zone=52, ellps = 'WGS84', preserve_units=False)
         
         # TF 브로드캐스터 초기화
         self.br = tf.TransformBroadcaster()
@@ -27,16 +26,18 @@ class GPSToUTM:
         # 현재 쿼터니언 초기화
         self.current_orientation = [0.0, 0.0, 0.0, 1.0]  # 초기 쿼터니언 (0, 0, 0, 1)
 
-    def lat_lon_to_utmk(self, lon, lat):
+    def lat_lon_to_utmk(self, lon, lat, x_off, y_off):
         # 위도, 경도를 UTM-K 좌표로 변환
-        x, y = pyproj.transform(self.proj_WGS84, self.proj_UTMK, lon, lat)
-        return x-960000, y-1930000#x,y#x-966578, y-1935636
+        utm_xy = self.proj_UTM(lon, lat)        
+        return utm_xy[0]-x_off, utm_xy[1]-y_off
 
     def gps_callback(self, msg):
         latitude = msg.latitude
         longitude = msg.longitude
+        x_offset = msg.eastOffset
+        y_offset = msg.northOffset
 
-        x, y = self.lat_lon_to_utmk(longitude, latitude)
+        x, y = self.lat_lon_to_utmk(longitude, latitude, x_offset, y_offset)
 
         if x is not None and y is not None:
             pose_stamped = PoseStamped()
