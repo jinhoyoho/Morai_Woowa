@@ -2,7 +2,11 @@
 #include <ros/package.h>  
 #include <geometry_msgs/PoseStamped.h>
 #include <visualization_msgs/Marker.h>
-#include <morai_msgs/SkidSteer6wUGVCtrlCmd.h>
+#include "morai_msgs/SkidSteer6wUGVCtrlCmd.h"
+#include "morai_msgs/WoowaDillyEventCmdSrv.h"
+#include "morai_msgs/DillyCmd.h"
+#include "morai_msgs/DillyCmdResponse.h"
+
 #include <nav_msgs/Path.h>
 #include <tf/transform_datatypes.h> // tf를 사용하여 쿼터니언 변환
 
@@ -23,6 +27,7 @@ struct Waypoint {
 };
 
 typedef std::vector<Waypoint> path;
+
 class PurePursuit {
 public:
     PurePursuit() : wheel_base(0.6), lfd(2.0), steering(0), is_look_forward_point(false) {}
@@ -115,10 +120,12 @@ public:
         nh_.param<std::string>("/state_node/waypoint_file2", waypoint_file_2_, "waypoints.csv");
         nh_.param<std::string>("/state_node/waypoint_file3", waypoint_file_3_, "waypoints.csv");
 
+        delivery_pickup_client_ = nh_.serviceClient<morai_msgs::WoowaDillyEventCmdSrv>("/WoowaDillyEventCmd");
 
         current_pose_sub_ = nh_.subscribe("/current_pose", 10, &StateNode::currentPoseCallback, this);
         waypoint_marker_pub_ = nh_.advertise<visualization_msgs::Marker>("/globalpath", 10, this);
         ctrl_cmd_pub= nh_.advertise<morai_msgs::SkidSteer6wUGVCtrlCmd>("/6wheel_skid_ctrl_cmd", 10); // Skid-Steer Control Publisher
+
 
         loadWaypoints(waypoint_file_1_, waypoints_1_);  // waypoint 파일에서 로드
         loadWaypoints(waypoint_file_2_, waypoints_2_);  // waypoint 파일에서 로드
@@ -173,6 +180,76 @@ public:
         waypoint_marker_pub_.publish(marker);
     }
 
+    bool delivery(int item_index){
+        
+        morai_msgs::WoowaDillyEventCmdSrv deli_srv;
+        deli_srv.request.request.isPickup = true; 
+        deli_srv.request.request.deliveryItemIndex = item_index; 
+        
+        delivery_pickup_client_.call(deli_srv);
+        
+        ros::Rate loop_rate(0.5);
+
+        int cnt = 0;
+
+        while (!deli_srv.response.response.result && ros::ok() && cnt < 5){
+            std::cout << "state node : Failed to delivery. Retrying..." << std::endl;
+            delivery_pickup_client_.call(deli_srv);
+            loop_rate.sleep();
+            ros::spinOnce();
+            cnt ++;
+        }
+
+        return deli_srv.response.response.result;
+        
+        // morai_msgs::DillyCmd srv;
+        // srv.isPickup = false;  // 또는 false
+        // srv.deliveryItemIndex = item_index;  // 원하는 인덱스
+
+        // // 서비스 호출
+        // if (delivery_pickup_client_.call(srv)) {
+        //     ROS_INFO("Result: %s", srv.response.result ? "true" : "false");
+        // } else {
+        //     ROS_ERROR("Failed to call service dilly_cmd_service");
+        // }
+    } 
+
+    bool pickup(int item_index){
+
+        morai_msgs::WoowaDillyEventCmdSrv pick_srv;
+        pick_srv.request.request.deliveryItemIndex = item_index;
+        pick_srv.request.request.isPickup = true;
+
+        delivery_pickup_client_.call(pick_srv);
+
+        ros::Rate loop_rate(0.5);
+
+        int cnt = 0;
+
+        while (!pick_srv.response.response.result && ros::ok() && cnt < 5){
+            std::cout << "state node : Failed to pick up. Retrying..." << std::endl;
+            delivery_pickup_client_.call(pick_srv);
+            loop_rate.sleep();
+            ros::spinOnce();
+            cnt ++;
+        }
+
+        return pick_srv.response.response.result;
+        
+        // morai_msgs::DillyCmd srv;
+        // srv.isPickup = true;  // 또는 false
+        // srv.deliveryItemIndex = item_index;  // 원하는 인덱스
+
+        // // 서비스 호출
+        // if (delivery_pickup_client_.call(srv)) {
+        //     ROS_INFO("Result: %s", srv.response.result ? "true" : "false");
+        // } else {
+        //     ROS_ERROR("Failed to call service dilly_cmd_service");
+        // }
+
+    }
+
+
     // 여기가 메인 state 함수임!!
     void state() {
         ros::Rate rate(100);  // 0.01 Hz
@@ -211,6 +288,7 @@ private:
     ros::NodeHandle nh_;
     ros::Subscriber current_pose_sub_;
     ros::Publisher waypoint_marker_pub_;
+    ros::ServiceClient delivery_pickup_client_;
 
     path waypoints_1_;
     path waypoints_2_;

@@ -41,7 +41,7 @@ void calibration::lidar_callBack(const sensor_msgs::PointCloud2ConstPtr& msg)
     pcl::fromPCLPointCloud2(cloud_intermediate, cloud);
 }
 
-void calibration::object_callBack(const Morai_Woowa::obj_info::ConstPtr& msg)
+void calibration::object_callBack(const morai_woowa::obj_info::ConstPtr& msg)
 {
     if (msg->name == "person")
     {

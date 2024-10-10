@@ -30,8 +30,6 @@ add_message_files(
 
 # add_service_files(
 #   FILES
-#   Service1.srv
-#   Service2.srv
 # )
 
 
@@ -89,6 +87,7 @@ target_link_libraries(dwa
 ##from jimin
 add_executable(state_node src/state_node.cpp)
 target_link_libraries(state_node ${catkin_LIBRARIES})
+
 add_executable(visualize src/visualize.cpp)
 target_link_libraries(visualize ${catkin_LIBRARIES})
 

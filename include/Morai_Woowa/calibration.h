@@ -13,7 +13,7 @@
 #include <opencv2/opencv.hpp>
 #include <opencv2/calib3d.hpp>
 
-#include "Morai_Woowa/obj_info.h"
+#include "morai_woowa/obj_info.h"
 #include "Morai_Woowa/LiDAR_pre.h"
 #include "Morai_Woowa/traffic.h"
 
@@ -58,7 +58,7 @@ public:
     
     void image_callBack(const sensor_msgs::ImageConstPtr& msg); // 이미지 받기
     void lidar_callBack(const sensor_msgs::PointCloud2ConstPtr& msg); // Lidar 받기
-    void object_callBack(const Morai_Woowa::obj_info::ConstPtr& msg);
+    void object_callBack(const morai_woowa::obj_info::ConstPtr& msg);
     void do_cali();  // calibration 실행
     void projection(); // 라이다 점을 이미지에 투영
 

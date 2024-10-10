@@ -1,5 +1,5 @@
 #include <ros/ros.h>
-#include "Morai_Woowa/obj_info.h"
+#include "morai_woowa/obj_info.h"
 #include <string>
 #include <cmath>
 #include <opencv2/opencv.hpp>
@@ -25,7 +25,7 @@ class Traffic
     public:
         Traffic(); // 생성자
 
-        void object_callBack(const Morai_Woowa::obj_info::ConstPtr& msg);
+        void object_callBack(const morai_woowa::obj_info::ConstPtr& msg);
         void image_callBack(const sensor_msgs::ImageConstPtr& msg);
         void process_image();
 };
