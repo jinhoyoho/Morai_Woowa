@@ -58,11 +58,15 @@ public:
         double roll, pitch;
         m.getRPY(roll, pitch, vehicle_yaw);  // vehicle_yaw in radians
         this->current_vel = current_vel;  // Velocity in kph
+    
+        // lfd를 동적으로 조정 (기본 lfd 2.0 + 속도 계수 0.5 적용)
+        lfd = 2.0 + 0.5 * current_vel;
+        ROS_INFO("Dynamic LFD: %.2f", lfd);
+    
     }
 
     double steering_angle(double lfd_input) {
-        lfd = lfd_input;  // Look-forward distance
-
+        lfd = lfd_input;  // Look-forward distance를 업데이트
         is_look_forward_point = false;
         geometry_msgs::Point rotated_point;
 
@@ -101,7 +105,7 @@ private:
     double vehicle_yaw;
     double current_vel;
     double wheel_base;
-    double lfd;
+    double lfd; // 동적으로 변경될 look-ahead distance
     double steering;
     bool is_look_forward_point;
     path waypoint_path;
@@ -112,9 +116,9 @@ public:
     StateNode() : closest_index_(-1) {
 
         //path폴더안에 path파일 이름!!!!!
-        //std::string filename = "test_path.csv";
-        //std::string current_path = ros::package::getPath("morai_woowa"); // 패키지 경로를 가져옵니다
-        //waypoint_file_ = current_path + "/path/" + filename;
+        std::string filename = "test_path.csv";
+        std::string current_path = ros::package::getPath("morai_woowa"); // 패키지 경로를 가져옵니다
+        waypoint_file_ = current_path + "/path/" + filename;
 
         nh_.param<std::string>("/state_node/waypoint_file1", waypoint_file_1_, "waypoints.csv");
         nh_.param<std::string>("/state_node/waypoint_file2", waypoint_file_2_, "waypoints.csv");
@@ -123,6 +127,7 @@ public:
         delivery_pickup_client_ = nh_.serviceClient<morai_msgs::WoowaDillyEventCmdSrv>("/WoowaDillyEventCmd");
 
         current_pose_sub_ = nh_.subscribe("/current_pose", 10, &StateNode::currentPoseCallback, this);
+        path_pub_ = nh_.advertise<nav_msgs::Path>("/global_path", 10); // 경로 퍼블리셔
         waypoint_marker_pub_ = nh_.advertise<visualization_msgs::Marker>("/globalpath", 10, this);
         ctrl_cmd_pub= nh_.advertise<morai_msgs::SkidSteer6wUGVCtrlCmd>("/6wheel_skid_ctrl_cmd", 10); // Skid-Steer Control Publisher
 
@@ -147,11 +152,42 @@ public:
     }
 
     void pub_global_path(){
+        publishPath(waypoints_1_);
+        publishPath(waypoints_2_);
+        publishPath(waypoints_3_);
+
         publishWaypoints(waypoints_1_);
         publishWaypoints(waypoints_2_);
         publishWaypoints(waypoints_3_);
     }
+    void publishPath(const path& waypoints) {
+    // nav_msgs::Path 메시지 생성
+    nav_msgs::Path path_msg;
+    path_msg.header.frame_id = "map"; // 사용할 프레임
+    path_msg.header.stamp = ros::Time::now();
 
+    for (const auto& waypoint : waypoints) {
+        geometry_msgs::PoseStamped pose_stamped;
+        pose_stamped.header.frame_id = "map";
+        pose_stamped.header.stamp = ros::Time::now();
+        
+        pose_stamped.pose.position.x = waypoint.x;
+        pose_stamped.pose.position.y = waypoint.y;
+        pose_stamped.pose.position.z = 0;
+
+        // heading 정보를 쿼터니언으로 변환
+        tf::Quaternion q = tf::createQuaternionFromYaw(waypoint.heading);
+        pose_stamped.pose.orientation.x = q.x();
+        pose_stamped.pose.orientation.y = q.y();
+        pose_stamped.pose.orientation.z = q.z();
+        pose_stamped.pose.orientation.w = q.w();
+
+        path_msg.poses.push_back(pose_stamped);
+    }
+
+    // 퍼블리시 (경로 추적에 사용)
+    path_pub_.publish(path_msg);
+    }
     void publishWaypoints(path waypoints) {
 
         visualization_msgs::Marker marker;
@@ -264,11 +300,7 @@ public:
                 double target_angular_velocity = steering_angle * M_PI / 180.0;
 
                 morai_msgs::SkidSteer6wUGVCtrlCmd ctrl_cmd_msg;
-                ctrl_cmd_msg.cmd_type = 1;
-                ctrl_cmd_msg.Forward_input = true;
-                ctrl_cmd_msg.Backward_input = false;
-                ctrl_cmd_msg.Left_Turn_input = false;
-                ctrl_cmd_msg.Right_Turn_input = false;
+                ctrl_cmd_msg.cmd_type = 3;
                 ctrl_cmd_msg.Target_linear_velocity = target_linear_velocity;  
                 ctrl_cmd_msg.Target_angular_velocity = target_angular_velocity;
 
@@ -287,9 +319,11 @@ public:
 private:
     ros::NodeHandle nh_;
     ros::Subscriber current_pose_sub_;
+    ros::Publisher path_pub_; // nav_msgs::Path 퍼블리셔
     ros::Publisher waypoint_marker_pub_;
     ros::ServiceClient delivery_pickup_client_;
 
+    std::string waypoint_file_;  // CSV 파일 경로를 저장할 변수
     path waypoints_1_;
     path waypoints_2_;
     path waypoints_3_;
