@@ -1,5 +1,6 @@
 #include <ros/ros.h>
 #include "morai_woowa/obj_info.h"
+#include "morai_woowa/traffic_srv.h"
 #include <string>
 #include <cmath>
 #include <opencv2/opencv.hpp>
@@ -21,6 +22,9 @@ class Traffic
         ros::Subscriber object_sub;
         std::vector<int> mvf; // 이동 평균 필터 10개만
         int count;  // 이동 평균 필터 개수
+        // 서비스 정의
+        ros::ServiceClient client;
+        morai_woowa::traffic_srv srv;
 
     public:
         Traffic(); // 생성자

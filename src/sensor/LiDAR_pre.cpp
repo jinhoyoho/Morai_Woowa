@@ -302,12 +302,12 @@ void LiDAR_pre::coord_transform()
     transformed_cloud->height = 1; // 비정형 포인트 클라우드
     transformed_cloud->is_dense = false; // NaN 포인트가 있을 수 있으므로
 
-    // 변환된 포인트 클라우드 확인
-    std::cout << std::fixed << std::setprecision(10);
+    // // 변환된 포인트 클라우드 확인
+    // std::cout << std::fixed << std::setprecision(10);
 
-    for (const auto& point : transformed_cloud->points) {
-        std::cout << "Transformed Point: (" << point.x << ", " << point.y << ", " << point.z << ")\n";
-    }
+    // for (const auto& point : transformed_cloud->points) {
+    //     std::cout << "Transformed Point: (" << point.x << ", " << point.y << ", " << point.z << ")\n";
+    // }
 }
 
 // void LiDAR_pre::coord_transform()

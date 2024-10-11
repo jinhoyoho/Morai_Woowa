@@ -14,10 +14,13 @@ find_package(catkin REQUIRED COMPONENTS
   sensor_msgs
   geometry_msgs
   tf  # tf 라이브러리 추가
+  actionlib
+  actionlib_msgs
 )
 
-find_package(OpenCV REQUIRED)
+find_package(Boost REQUIRED COMPONENTS system)
 
+find_package(OpenCV REQUIRED)
 
 ##from sanghun
 find_package(PCL REQUIRED)
@@ -28,27 +31,28 @@ add_message_files(
   obj_info.msg
 )
 
-# add_service_files(
-#   FILES
-# )
+add_service_files(
+  FILES
+  traffic_srv.srv
+)
 
-
-# add_action_files(
-#   FILES
-#   Action1.action
-#   Action2.action
-# )
+add_action_files(
+  FILES
+  Planning_Tracking_Act.action
+  Person_Collision_Act.action
+)
 
 generate_messages(
   DEPENDENCIES
   std_msgs  # Or other packages containing msgs
+  actionlib_msgs
 )
 
 
 catkin_package(
 #  INCLUDE_DIRS include
   LIBRARIES morai_woowa
-  CATKIN_DEPENDS morai_msg roscpp rospy stds_msg message_runtime pcl_conversions pcl_ros
+  CATKIN_DEPENDS morai_msg roscpp rospy stds_msg message_runtime pcl_conversions pcl_ros actionlib_msgs
 #  DEPENDS system_lib
 )
 
@@ -56,6 +60,7 @@ catkin_package(
 include_directories(
  include
  ${catkin_INCLUDE_DIRS}
+ ${Boost_INCLUDE_DIRS}
  ${OpenCV_INCLUDE_DIRS}
  ##from sanghun
  ${PCL_INCLUDE_DIRS}
@@ -86,6 +91,7 @@ target_link_libraries(dwa
 
 ##from jimin
 add_executable(state_node src/state_node.cpp)
+add_dependencies(state_node ${morai_woowa_EXPORTED_TARGETS})
 target_link_libraries(state_node ${catkin_LIBRARIES})
 
 add_executable(visualize src/visualize.cpp)
