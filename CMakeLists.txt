@@ -28,9 +28,10 @@ add_message_files(
   obj_info.msg
 )
 
-# add_service_files(
-#   FILES
-# )
+add_service_files(
+  FILES
+  traffic_srv.srv
+)
 
 
 # add_action_files(

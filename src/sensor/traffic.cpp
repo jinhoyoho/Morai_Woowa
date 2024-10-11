@@ -7,6 +7,7 @@ Traffic::Traffic()
     count = 0;
     ros::NodeHandle nh;
     image_sub = nh.subscribe("traffic_image", 1, &Traffic::image_callBack, this);
+    client = nh.serviceClient<morai_woowa::traffic_srv>("traffic_srv");
     std::cout << "Traffic on" << "\n";
 }
 
@@ -93,7 +94,7 @@ void Traffic::process_image()
             if(sum >= 0.5) // 5개만 넘어도 출발
             {
                 // 빨간 신호등을 봐야 출발
-                if(redFlag)
+                if(redFlag && client.call(srv))
                 {
                     ROS_INFO("GO!");
                     

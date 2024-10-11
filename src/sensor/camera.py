@@ -100,10 +100,12 @@ class IMGParser:
 
                         self.traffic_image_pub.publish(self.br.cv2_to_imgmsg(traffic_image_copy))
 
-                img = results[0].plot()
-                cv2.imshow("Image window", img)
-                if cv2.waitKey(1) == ord('q'):
-                    break
+
+                # img = results[0].plot()
+            
+                # cv2.imshow("Image window", image_copy)
+                # if cv2.waitKey(1) == ord('q'):
+                #     break
 
             rate.sleep()
 

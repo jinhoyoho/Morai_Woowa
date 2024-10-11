@@ -58,28 +58,22 @@ void calibration::do_cali()
 {
     // 3D 포인트 (LiDAR 좌표계)
     std::vector<cv::Point3f> objectPoints = {
-        cv::Point3f(3.8865, 2.8769, 0.93993),
-        cv::Point3f(6.0686, 0.057146, 0.74517),
-        cv::Point3f(3.7771, -2.4609, 0.87629),
-        cv::Point3f(3.8467, 2.8538, 0.25102),
-        cv::Point3f(6.044, 0.051695, 0.1055),
-        cv::Point3f(3.7597, -2.4438, 0.23501),
-        cv::Point3f(3.8965, 2.7406, -0.41678),
-        cv::Point3f(6.0707, -0.10597, -0.3182),
-        cv::Point3f(3.7982, -2.6378, -0.40458)
+        cv::Point3f(7.6422, 2.0477, -0.18369),
+        cv::Point3f(4.3972, 0.44665, -0.41235),
+        cv::Point3f(3.931, -0.91476, 0),
+        cv::Point3f(3.931, -0.91476, 0),
+        cv::Point3f(3.931, -0.91476, 0)
+        
     };
 
     // 2D 포인트 (카메라 이미지 좌표계)
     std::vector<cv::Point2f> imagePoints = {
-        cv::Point2f(88, 184),
-        cv::Point2f(319, 201),
-        cv::Point2f(523, 178),
-        cv::Point2f(80, 240),
-        cv::Point2f(317, 234),
-        cv::Point2f(527, 229),
-        cv::Point2f(100, 278),
-        cv::Point2f(325, 266),
-        cv::Point2f(542, 275)
+        cv::Point2f(66, 258),
+        cv::Point2f(206, 303),
+        cv::Point2f(505, 234),
+        cv::Point2f(505, 234),
+        cv::Point2f(505, 234)
+        
     };
 
     // 카메라 내적 매트릭스 (fx, fy, cx, cy)
@@ -153,7 +147,7 @@ void calibration::projection()
             if ((xmin <= x) && (x <= xmax) && (ymin <= y) && (y <= ymax))
             {
                 // 점 찍기 (빨간색)
-                // cv::circle(copy_frame, cv::Point(x, y), 3, cv::Scalar(0, 0, 255), -1);
+                cv::circle(copy_frame, cv::Point(x, y), 3, cv::Scalar(0, 0, 255), -1);
 
                 // 거리 계산
                 double distance = std::sqrt(cloud.points[i].x * cloud.points[i].x + 
@@ -178,14 +172,14 @@ void calibration::projection()
             }
             double averageDistance = sum / classCount[classId];
 
-            std::cout << "Class " << classId << ": Average Distance = " << averageDistance << std::endl;
+            // std::cout << "Class " << classId << ": Average Distance = " << averageDistance << std::endl;
         }
 
-        // if (!copy_frame.empty())
-        // {
-        //     cv::imshow("Projection Image", copy_frame);
-        //     if (cv::waitKey(10) == 27) exit(1);  // esc키로 종료 
-        // }
+        if (!copy_frame.empty())
+        {
+            cv::imshow("Projection Image", copy_frame);
+            if (cv::waitKey(10) == 27) exit(1);  // esc키로 종료 
+        }
     }
     catch (cv_bridge::Exception& e)
     {
