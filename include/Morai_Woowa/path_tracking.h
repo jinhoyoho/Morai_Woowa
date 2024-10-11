@@ -20,6 +20,7 @@ public:
     void odomCallback(const nav_msgs::Odometry::ConstPtr& msg); 
     // 스티어링 각도를 계산
     double steering_angle();
+    double calculateCurvature();
     void controlLoop();
 
 

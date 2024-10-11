@@ -110,15 +110,67 @@ double PurePursuitController::steering_angle() {
     return steering;
 }
 
+double PurePursuitController::calculateCurvature() {
+    if (waypoint_path.size() < 3) {
+        return 0.0;
+    }
+
+    // 현재 위치에서 가까운 세 개의 웨이포인트 사용
+    size_t idx = 0; // 현재 위치에 가장 가까운 웨이포인트 인덱스
+    double min_dist = std::numeric_limits<double>::max();
+
+    for (size_t i = 0; i < waypoint_path.size(); ++i) {
+        double dist = hypot(waypoint_path[i].x - current_position.x, waypoint_path[i].y - current_position.y);
+        if (dist < min_dist) {
+            min_dist = dist;
+            idx = i;
+        }
+    }
+
+    if (idx + 2 >= waypoint_path.size()) {
+        return 0.0;
+    }
+
+    // 세 개의 웨이포인트 좌표
+    double x1 = waypoint_path[idx].x;
+    double y1 = waypoint_path[idx].y;
+    double x2 = waypoint_path[idx + 1].x;
+    double y2 = waypoint_path[idx + 1].y;
+    double x3 = waypoint_path[idx + 2].x;
+    double y3 = waypoint_path[idx + 2].y;
+
+    // 곡률 계산
+    double kappa = fabs((x2 - x1)*(y3 - y1) - (y2 - y1)*(x3 - x1)) /
+                   (pow((x2 - x1)*(x2 - x1) + (y2 - y1)*(y2 - y1), 1.5) + 1e-6);
+
+    return kappa;
+}
+
 void PurePursuitController::controlLoop() {
     ros::Rate rate(10);
     while (ros::ok()) {
         ros::spinOnce();  // 콜백 함수 호출
         double angle = steering_angle();
+        double curvature = calculateCurvature();
+
+        // 곡률에 따른 속도 조절
+        double max_speed = 3.0; // 최대 속도 (m/s)
+        double min_speed = 1.0; // 최소 속도 (m/s)
+        double speed;
+
+        if (curvature < 0.1) {
+            speed = max_speed;
+        } else {
+            speed = max_speed / (1 + 10 * curvature);
+            if (speed < min_speed) {
+                speed = min_speed;
+            }
+        }
+
         // 각속도로 변환 (degrees -> radians)
         double target_angular_velocity = angle * M_PI / 180.0;
 
-        // 각속도를 최대 0.83 rad/s로 제한
+        // 각속도를 최대값으로 제한
         if (target_angular_velocity > 0.83) {
             target_angular_velocity = 0.83;
         } else if (target_angular_velocity < -0.83) {
@@ -127,12 +179,13 @@ void PurePursuitController::controlLoop() {
 
         morai_msgs::SkidSteer6wUGVCtrlCmd ctrl_cmd;
         ctrl_cmd.cmd_type = 3;
-        ctrl_cmd.Target_linear_velocity = 2.0;
+        ctrl_cmd.Target_linear_velocity = speed;
         ctrl_cmd.Target_angular_velocity = target_angular_velocity;
         ctrl_cmd_pub_.publish(ctrl_cmd);
         rate.sleep();
     }
 }
+
 int main(int argc, char** argv) {
     ros::init(argc, argv, "path_tracking");
     ros::NodeHandle nh;
