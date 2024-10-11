@@ -1,0 +1,9 @@
+#goal definition
+string path
+bool reverse
+---
+#result definition
+bool success
+---
+#feedback
+float32 progress_percentage

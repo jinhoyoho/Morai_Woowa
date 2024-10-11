@@ -53,14 +53,20 @@
   <build_depend>roscpp</build_depend>
   <build_depend>rospy</build_depend>
   <build_depend>stds_msg</build_depend>
+  <build_depend>actionlib_msgs</build_depend>
+
   <build_export_depend>morai_msg</build_export_depend>
   <build_export_depend>roscpp</build_export_depend>
   <build_export_depend>rospy</build_export_depend>
   <build_export_depend>stds_msg</build_export_depend>
+  <build_export_depend>actionlib_msgs</build_export_depend>
+  
   <exec_depend>morai_msg</exec_depend>
   <exec_depend>roscpp</exec_depend>
   <exec_depend>rospy</exec_depend>
   <exec_depend>stds_msg</exec_depend>
+  <exec_depend>actionlib_msgs</exec_depend>
+  
   <build_depend>message_generation</build_depend>
   <exec_depend>message_runtime</exec_depend>
   <build_depend>pcl_conversions</build_depend>
