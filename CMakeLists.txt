@@ -13,6 +13,7 @@ find_package(catkin REQUIRED COMPONENTS
   image_transport
   sensor_msgs
   geometry_msgs
+  nav_msgs
   tf  # tf 라이브러리 추가
   actionlib
   actionlib_msgs
@@ -21,6 +22,7 @@ find_package(catkin REQUIRED COMPONENTS
 find_package(Boost REQUIRED COMPONENTS system)
 
 find_package(OpenCV REQUIRED)
+
 
 ##from sanghun
 find_package(PCL REQUIRED)
@@ -52,7 +54,7 @@ generate_messages(
 catkin_package(
 #  INCLUDE_DIRS include
   LIBRARIES morai_woowa
-  CATKIN_DEPENDS morai_msg roscpp rospy stds_msg message_runtime pcl_conversions pcl_ros actionlib_msgs
+  CATKIN_DEPENDS geometry_msgs nav_msgs tf morai_msg roscpp rospy stds_msg message_runtime pcl_conversions pcl_ros actionlib_msgs
 #  DEPENDS system_lib
 )
 
@@ -97,3 +99,9 @@ target_link_libraries(state_node ${catkin_LIBRARIES})
 add_executable(visualize src/visualize.cpp)
 target_link_libraries(visualize ${catkin_LIBRARIES})
 
+##from Gyumin
+add_executable(global_path src/planning/global_path.cpp)
+target_link_libraries(global_path ${catkin_LIBRARIES})
+
+add_executable(path_tracking src/planning/path_tracking.cpp)
+target_link_libraries(path_tracking ${catkin_LIBRARIES})
