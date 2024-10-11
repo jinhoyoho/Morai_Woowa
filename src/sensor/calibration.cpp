@@ -21,7 +21,7 @@ void calibration::image_callBack(const sensor_msgs::ImageConstPtr& msg)
         // bgr data가 수신되어 그냥 이용해도 된다
         frame = cv::Mat(msg->height, msg->width, CV_8UC3, const_cast<unsigned char*>(msg->data.data()), msg->step);        
 
-        cv::imshow("Received Image", frame);
+        // cv::imshow("Received Image", frame);
         if (cv::waitKey(10) == 27) exit(1);  // esc키로 종료  
     }
     catch (cv_bridge::Exception& e)
@@ -129,7 +129,6 @@ void calibration::projection()
     try{
         std::unordered_map<int, std::vector<double>> classDistances; // 클래스별 거리 저장
         std::unordered_map<int, int> classCount; // 클래스별 점 수 저장
-        cv::Mat copy_frame = frame;
 
         for(int i = 0; i < cloud.size(); i++)
         {
@@ -142,12 +141,11 @@ void calibration::projection()
             int x = static_cast<int>(result[0] / result[2]); // X 좌표
             int y = static_cast<int>(result[1] / result[2]); // Y 좌표
 
-            // std::cout << x << " " << y << "\n";
             // 박스 안에 있을 때만 점 찍기
             if ((xmin <= x) && (x <= xmax) && (ymin <= y) && (y <= ymax))
             {
                 // 점 찍기 (빨간색)
-                cv::circle(copy_frame, cv::Point(x, y), 3, cv::Scalar(0, 0, 255), -1);
+                cv::circle(frame, cv::Point(x, y), 3, cv::Scalar(0, 0, 255), -1);
 
                 // 거리 계산
                 double distance = std::sqrt(cloud.points[i].x * cloud.points[i].x + 
@@ -175,9 +173,9 @@ void calibration::projection()
             // std::cout << "Class " << classId << ": Average Distance = " << averageDistance << std::endl;
         }
 
-        if (!copy_frame.empty())
+        if (!frame.empty())
         {
-            cv::imshow("Projection Image", copy_frame);
+            cv::imshow("Projection Image", frame);
             if (cv::waitKey(10) == 27) exit(1);  // esc키로 종료 
         }
     }
