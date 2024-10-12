@@ -112,3 +112,6 @@ target_link_libraries(global_path ${catkin_LIBRARIES})
 
 add_executable(path_tracking src/planning/path_tracking.cpp)
 target_link_libraries(path_tracking ${catkin_LIBRARIES})
+
+add_executable(dynamic_planning src/planning/dynamic_planning.cpp)
+target_link_libraries(dynamic_planning ${catkin_LIBRARIES})
