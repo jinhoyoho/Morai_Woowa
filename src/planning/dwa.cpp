@@ -28,6 +28,7 @@ void obstacle_callback(const sensor_msgs::PointCloud2::ConstPtr& msg);
 void pose_callback(const geometry_msgs::PoseStamped::ConstPtr& msg);
 void gpath_callback(const nav_msgs::Path::ConstPtr& msg);
 void filter_obstacle();
+void gpath_cut();
 void make_candidate_path(std::shared_ptr<std::vector<std::vector<std::vector<double>>>> candidate_path_ptr);
 void vote_president_path(std::shared_ptr<std::vector<std::vector<std::vector<double>>>> candidate_path_ptr);
 void make_msg(std::shared_ptr<std::vector<std::vector<std::vector<double>>>> candidate_path_ptr, 
@@ -58,11 +59,11 @@ int main(int argc, char **argv){
     while(ros::ok()){
         std::cout<<global_path_ptr->size()<<std::endl;
         if(global_path_ptr->size()>0){
-
+            gpath_cut();
             make_candidate_path(candidate_path_ptr);
 
             filter_obstacle();
-
+            
             vote_president_path(candidate_path_ptr);
             auto candidate_msg_ptr = std::make_shared<sensor_msgs::PointCloud>();
             auto president_msg_ptr = std::make_shared<nav_msgs::Path>();
@@ -86,20 +87,34 @@ void obstacle_callback(const sensor_msgs::PointCloud2::ConstPtr& msg){
 void gpath_callback(const nav_msgs::Path::ConstPtr& msg) {
     global_path_ptr->clear();
     global_path_ptr->reserve(msg->poses.size());
-    int idx = 0;
-    for (int i=0; i< msg->poses.size(); i++){
-        auto g_x = msg->poses.at(i).pose.position.x;
-        auto g_y = msg->poses.at(i).pose.position.y;
-        if(calculateDistance({g_x, g_y, 0.0}, {pose_ptr->at(0), pose_ptr->at(1), 0.0}) < 0.5){
-            idx = i;
-            break;
-        }
-    }
 
     for (int i = 0; i < msg->poses.size(); i++) {
         double x = msg->poses[i].pose.position.x;
         double y = msg->poses[i].pose.position.y;
         global_path_ptr->push_back({x, y, 0});  // x, y를 vector로 저장
+    }
+}
+
+void gpath_cut(){
+    int idx = -1;
+    int closet_idx = -1;
+    double closet_dis = 9999;
+    for (int i=0; i< global_path_ptr->size(); i++){
+        auto g_x = global_path_ptr->at(global_path_ptr->size() - i -1).at(0);
+        auto g_y = global_path_ptr->at(global_path_ptr->size() - i -1).at(1);
+        auto dis = calculateDistance({g_x, g_y, 0.0}, {pose_ptr->at(0), pose_ptr->at(1), 0.0});
+        if(dis < 0.5){
+            idx = global_path_ptr->size() - i -1;
+            break;
+        }
+        if(dis < closet_dis){
+            closet_dis = dis;
+            closet_idx = global_path_ptr->size() - i -1;
+        }
+    }
+
+    if(idx == -1){
+        idx = closet_idx;
     }
     
     std::vector<std::vector<double>> sliced(global_path_ptr->begin()+idx, global_path_ptr->end());
@@ -188,20 +203,14 @@ void vote_president_path(std::shared_ptr<std::vector<std::vector<std::vector<dou
                 obstacle_ptr->at(k).at(2) = 0.0;
 
                 auto distance = calculateDistance(current_candidate.at(j), obstacle_ptr->at(k));
-                if(distance < 0.5){
+                if(distance < 1){
                     current_cost += 9999;
                 }
                 // current_cost += obstacle_cost / std::pow(distance, 2);
             }
 
             // path cost
-            double distance;
-            if (global_path_ptr->size() >= j){
-                distance = calculateDistance(current_candidate.at(j), global_path_ptr->at(j));
-            }
-            else{
-                distance = calculateDistance(current_candidate.back(), global_path_ptr->back());
-            }
+            auto distance = calculateDistance(current_candidate.at(j), global_path_ptr->at(j));
             current_cost += global_path_cost * std::pow(distance, 1);
             }
 

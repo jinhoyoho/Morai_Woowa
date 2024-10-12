@@ -29,25 +29,27 @@ auto center_points_history_ptr = std::make_shared<std::vector<pcl::PointCloud<pc
 void cluster_callback(const sensor_msgs::PointCloud2::ConstPtr& msg);
 pcl::PointXYZ get_center(pcl::PointCloud<pcl::PointXYZI>::Ptr cloud_ptr);
 void tracking();
-void make_arrows();
+void make_arrows(ros::Publisher& marker_pub);
 void make_obstacle_msg();
 void removeSmallClusters();
 
-int marker_id = 0;
+int marker_size = 0;
 
 int main(int argc, char **argv){
     ros::init(argc, argv, "obstacle_tracking");
     ros::NodeHandle nh;
     // ros::Subscriber cluster_sub = nh.subscribe("clustered_points", 10, cluster_callback);
     ros::Subscriber cluster_sub = nh.subscribe("lidar_utm", 10, cluster_callback);
-    ros::Publisher marker_array_pub = nh.advertise<visualization_msgs::MarkerArray>("visualization_marker_array", 10);
+    ros::Publisher marker_array_pub = nh.advertise<visualization_msgs::Marker>("visualization_marker_array", 10);
     ros::Publisher obstacle_pub = nh.advertise<sensor_msgs::PointCloud2>("obstacle", 10);
     ros::Rate loop_rate(10);
 
     while (ros::ok()) {
         pcl::toROSMsg(*cloud_ptr, *cloud_msg_ptr);
         std::cout<<arrow_array_ptr->markers.size()<<std::endl;
-        marker_array_pub.publish(*arrow_array_ptr);
+        if(center_points_history_ptr->size() == 10){
+            make_arrows(marker_array_pub);
+        }
         obstacle_pub.publish(*obstacle_msg_ptr);
         loop_rate.sleep();
         // ROS_INFO("%ld", clusters_ptr->size());
@@ -95,7 +97,7 @@ void cluster_callback(const sensor_msgs::PointCloud2::ConstPtr& msg){
 
         if(center_points_history_ptr->size() == 10){
             tracking();
-            make_arrows();
+            
             make_obstacle_msg();
         }
 
@@ -192,8 +194,8 @@ void tracking(){
 }
 
 
-void make_arrows() {
-    // 먼저 기존 마커들을 삭제
+void make_arrows(ros::Publisher& marker_pub) {
+    // 기존 마커들을 삭제
     for (int i = 0; i < arrow_array_ptr->markers.size(); i++) {
         visualization_msgs::Marker delete_marker;
         delete_marker.header.frame_id = "map";  // 'map' 좌표계 기준
@@ -203,12 +205,13 @@ void make_arrows() {
         delete_marker.action = visualization_msgs::Marker::DELETE;  // 마커 삭제 명령
 
         // 삭제 마커를 퍼블리시할 배열에 추가
-        arrow_array_ptr->markers[i] = delete_marker;
+        marker_pub.publish(delete_marker);  // 삭제 마커 퍼블리시
     }
     
-    // 마커를 초기화하고 새 마커들을 추가
-    // arrow_array_ptr->markers.clear();  // 이전 마커 모두 지운 후 초기화
+    // arrow_array_ptr->markers를 초기화하여 기존 마커 데이터를 삭제
+    arrow_array_ptr->markers.clear();  
 
+    // 마커를 초기화하고 새 마커들을 추가
     for (int i = 0; i < translation_ptr->size(); i++) {
         visualization_msgs::Marker marker;
 
@@ -218,8 +221,7 @@ void make_arrows() {
 
         // Marker의 네임스페이스와 ID 설정
         marker.ns = "arrows";
-        marker.id = marker_id;  // 각 마커는 고유한 ID를 가져야 함
-        marker_id++;
+        marker.id = i;  // 각 마커는 고유한 ID를 가져야 함
 
         // 화살표 타입으로 설정
         marker.type = visualization_msgs::Marker::ARROW;
@@ -257,7 +259,13 @@ void make_arrows() {
         // 마커를 마커 배열에 추가
         arrow_array_ptr->markers.push_back(marker);
     }
+
+    // 새 마커들을 퍼블리시
+    for (int i = 0; i < arrow_array_ptr->markers.size(); i++) {
+        marker_pub.publish(arrow_array_ptr->markers[i]);
+    }
 }
+
 
 
 void make_obstacle_msg(){
