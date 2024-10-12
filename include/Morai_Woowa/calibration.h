@@ -36,13 +36,13 @@ double skew_c = 0;
 
 // camera origin
 double camera_x = 0.2;
-double camera_y = -0.130;
-double camera_z = 0.744;
+double camera_y = 0.0;
+double camera_z = 0.81;
 
 // lidar origin
 double lidar_x = 0.2;
 double lidar_y = 0.0;
-double lidar_z = 0.710;
+double lidar_z = 0.72;
 
 class calibration
 {
@@ -83,5 +83,5 @@ public:
     void do_cali();  // calibration 실행
     void projection(cv::Mat frame); // 라이다 점을 이미지에 투영
 
-    Eigen::Matrix3d computeRotationMatrix(double roll, double pitch, double yaw);
+    cv::Mat_<double> computeRotationMatrix(double roll, double pitch, double yaw);
 };

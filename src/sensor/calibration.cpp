@@ -50,24 +50,24 @@ void calibration::object_callBack(const morai_woowa::obj_info::ConstPtr& msg)
 }
 
 
-Eigen::Matrix3d calibration::computeRotationMatrix(double roll, double pitch, double yaw) {
+cv::Mat_<double> calibration::computeRotationMatrix(double roll, double pitch, double yaw) {
     // 각도를 라디안으로 변환
     roll *= M_PI / 180.0;
     pitch *= M_PI / 180.0;
     yaw *= M_PI / 180.0;
 
     // 회전 행렬 계산
-    Eigen::Matrix3d R_x;
+    cv::Mat_<double> R_x(3, 3);
     R_x << 1, 0, 0,
            0, cos(roll), -sin(roll),
            0, sin(roll), cos(roll);
 
-    Eigen::Matrix3d R_y;
+    cv::Mat_<double> R_y(3, 3);
     R_y << cos(pitch), 0, sin(pitch),
            0, 1, 0,
            -sin(pitch), 0, cos(pitch);
 
-    Eigen::Matrix3d R_z;
+    cv::Mat_<double> R_z(3, 3);
     R_z << cos(yaw), -sin(yaw), 0,
            sin(yaw), cos(yaw), 0,
            0, 0, 1;
@@ -83,21 +83,13 @@ void calibration::do_cali()
     cameraMatrix = (cv::Mat_<double>(3, 3) << fx, 0, cx,
                                             0,fy, cy,
                                             0, 0, 1);
-    
-    // cv::Mat rotate = (cv::Mat_<double>(3, 1) <<  90 * M_PI / 180, 0 * M_PI / 180, 0 * M_PI / 180); // 회전 없음
-    // cv::Rodrigues(rotate, rvec);
-    // rvec = cv::Mat(3, 3, CV_64F, extrinsic.data());
 
-    rvec = (cv::Mat_<double>(3, 3) << 0, 0, 1,
-                                    0,-1, 0,
-                                    -1, 0, 0);
+    // 라이다 -> 카메라 좌표계로 일치시키는 행렬
+    rvec = (cv::Mat_<double>(3, 3) << 0, 1, 0,
+                                     0, 0, 1,
+                                     -1, 0, 0);
 
-                                    
-    cv::Mat r_yaw = (cv::Mat_<double>(3, 3) << 0, -1, 0,
-                                    1,0, 0,
-                                    0, 0, 1);
-
-    rvec = r_yaw * rvec;
+    rvec = this->computeRotationMatrix(-10, 0, 0) * rvec;
 
 
     tvec = (cv::Mat_<double>(3, 1) << lidar_x - camera_x, lidar_y - camera_y, lidar_z - camera_z); 
@@ -136,7 +128,7 @@ void calibration::projection(cv::Mat frame)
                 if ((xmin <= x) && (x <= xmax) && (ymin <= y) && (y <= ymax))
                 {
                     // 점 찍기 (빨간색)
-                    cv::circle(frame, cv::Point(x, y), 2, cv::Scalar(0, 0, 255), -1);
+                    cv::circle(frame, cv::Point(x, y), 3, cv::Scalar(0, 0, 255), -1);
 
 
                     // 해당하는 픽셀 좌표의 LiDAR 거리 계산
