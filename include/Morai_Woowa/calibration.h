@@ -60,6 +60,8 @@ private:
     Eigen::Vector3d camera_origin; // 카메라 원점
     Eigen::Vector3d lidar_origin; // 라이다 원점
 
+    std::vector<double> intensity;  // intensity 값 저장
+
     // box 크기
     int xmin;
     int xmax;

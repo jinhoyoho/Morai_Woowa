@@ -4,10 +4,11 @@ Traffic::Traffic()
 {
     flag = false; // flag false로 생성
     redFlag = false;    // 빨간 신호등을 보았는가요?
+    crosswalk = false; // request를 받았나요?
     count = 0;
     ros::NodeHandle nh;
     image_sub = nh.subscribe("traffic_image", 1, &Traffic::image_callBack, this);
-    client = nh.serviceClient<morai_woowa::traffic_srv>("traffic_srv");
+    traffic_server = nh.advertiseService("traffic_srv", &Traffic::go_crosswalk, this);
     std::cout << "Traffic on" << "\n";
 }
 
@@ -28,6 +29,19 @@ void Traffic::image_callBack(const sensor_msgs::ImageConstPtr& msg)
         ROS_ERROR("Could not convert image! %s", e.what());
         ROS_ERROR("Received image encoding: %s", msg->encoding.c_str());
     }
+}
+
+bool Traffic::go_crosswalk(morai_woowa::traffic_srv::Request &req, morai_woowa::traffic_srv::Response &res)
+{
+    crosswalk = req.CrossWalk;  // request를 받음
+    
+    ROS_INFO("Traffic request: %d(1 is True, 0 is False)", crosswalk);
+
+    ROS_INFO("Traffic response: %d(1 is True, 0 is False)", flag);
+
+    res.Go = flag;
+    
+    return flag;
 }
 
 void Traffic::process_image()
@@ -94,12 +108,13 @@ void Traffic::process_image()
             if(sum >= 0.5) // 5개만 넘어도 출발
             {
                 // 빨간 신호등을 봐야 출발
-                if(redFlag && client.call(srv))
+                if(redFlag && crosswalk)
                 {
                     ROS_INFO("GO!");
                     
                     flag = true;        // 출발 플래그 publish 해줘야 함
                     redFlag = false;    // 다시 빨간 신호등을 봐야 출발
+                    crosswalk = false;
 
                     mvf.clear();    // 모든 벡터 지우기
                     count = 0;      // 개수는 0

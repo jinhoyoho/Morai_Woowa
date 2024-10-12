@@ -39,6 +39,7 @@ void calibration::lidar_callBack(const sensor_msgs::PointCloud2ConstPtr& msg)
     // 포인트 변환
     for (size_t i = 0; i < cloud.size(); ++i) {
         objectPoints.emplace_back(cloud.points[i].x, cloud.points[i].y, cloud.points[i].z);
+        intensity.emplace_back(cloud.points[i].intensity);
     }
     lidar_points = objectPoints;
 }
@@ -47,13 +48,20 @@ void calibration::object_callBack(const morai_woowa::obj_info::ConstPtr& msg)
 {
     if (msg->name == "person")
     {
-        ymax = msg->ymax;
-        ymin = msg->ymin;
-        xmax = msg->xmax;
-        xmin = msg->xmin;
-        this->projection(frame);
-        cv::imshow("Received Image", frame);
-        if (cv::waitKey(10) == 27) exit(1);  // esc키로 종료
+    ymax = msg->ymax;
+    ymin = msg->ymin;
+    xmax = msg->xmax;
+    xmin = msg->xmin;
+    this->projection(frame);
+    }
+
+    try{
+        cv::imshow("Projection IMG", frame);
+        if(cv::waitKey(10) == 27) exit(1);
+    }
+    catch(cv_bridge::Exception& e)
+    {
+        ROS_ERROR("object_callBack %s", e.what());
     }
 }
 
@@ -88,23 +96,23 @@ Eigen::Matrix3d calibration::computeRotationMatrix(double roll, double pitch, do
 
 void calibration::do_cali()
 {
-    // camera 내부 파라미터 값 저장
-    intrinsic << fx, skew_c, cx,
-                 0, fy, cy,
-                 0, 0, 1;
+    // // camera 내부 파라미터 값 저장
+    // intrinsic << fx, skew_c, cx,
+    //              0, fy, cy,
+    //              0, 0, 1;
 
     
-    // LiDAR의 회전을 카메라 좌표계로 변환
-    Eigen::Matrix3d total_rotation = computeRotationMatrix(90, 0, 90);
+    // // LiDAR의 회전을 카메라 좌표계로 변환
+    // Eigen::Matrix3d total_rotation = computeRotationMatrix(90, 0, 90);
     
-    // 원점 좌표 저장
-    camera_origin << camera_x, camera_y, camera_z;
-    lidar_origin << lidar_x, lidar_y, lidar_z;
+    // // 원점 좌표 저장
+    // camera_origin << camera_x, camera_y, camera_z;
+    // lidar_origin << lidar_x, lidar_y, lidar_z;
 
-    // 변환 벡터 계산
-    Eigen::Vector3d translation = lidar_origin - camera_origin;
+    // // 변환 벡터 계산
+    // Eigen::Vector3d translation = lidar_origin - camera_origin;
 
-    extrinsic.block<3, 3>(0, 0) = total_rotation;   // (0, 0)부터 3x3을 채워넣겠다
+    // extrinsic.block<3, 3>(0, 0) = total_rotation;   // (0, 0)부터 3x3을 채워넣겠다
     // extrinsic.block<3, 1>(0, 3) = translation;  // (0, 3)부터 3x1을 채워넣겠다
 
 
@@ -168,8 +176,7 @@ void calibration::projection(cv::Mat frame)
         try {
             cv::projectPoints(lidar_points, rvec, tvec, cameraMatrix, distCoeffs, imagePoints);
         } catch (const cv::Exception& e) {
-            std::cerr << "OpenCV Exception: " << e.what() << std::endl;
-            return; // 오류 처리
+            ROS_ERROR("Projection ERROR! %s", e.what());
         }
 
         std::unordered_map<int, std::vector<double>> classDistances; // 클래스별 거리 저장
@@ -194,7 +201,7 @@ void calibration::projection(cv::Mat frame)
                                             lidarPoint.y * lidarPoint.y +
                                             lidarPoint.z * lidarPoint.z);
 
-                int classId = static_cast<int>(lidarPoint.intensity); // intensity를 클래스 ID로 변환
+                int classId = static_cast<int>(intensity[i]); // intensity를 클래스 ID로 변환
                 // 거리 추가
                 classDistances[classId].push_back(distance);
                 classCount[classId]++;

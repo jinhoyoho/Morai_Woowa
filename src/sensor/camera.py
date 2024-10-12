@@ -61,16 +61,16 @@ class IMGParser:
                         detected_obj.ymax = top
                         detected_obj.name = label
 
-                        # 인지된 객체 바운딩박스 그려준다.
-                        image_copy = cv2.rectangle(image_copy, (left, bottom), (right, top), (0, 0, 255), 2)
-                        self.obj_pub.publish(detected_obj)
-
                         # 이미지 크기 확인
                         if image_copy.size == 0 or image_copy.shape[0] == 0 or image_copy.shape[1] == 0:
                             rospy.logwarn("Empty image copy. Skipping publishing.")
                             continue  # 이미지가 유효하지 않으면 건너뜀
 
                         self.image_pub.publish(self.br.cv2_to_imgmsg(image_copy))
+
+                        # 인지된 객체 바운딩박스 그려준다.
+                        image_copy = cv2.rectangle(image_copy, (left, bottom), (right, top), (0, 0, 255), 2)
+                        self.obj_pub.publish(detected_obj)
 
 
                     elif label == 'traffic light':
