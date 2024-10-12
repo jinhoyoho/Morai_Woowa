@@ -2,7 +2,6 @@
 
 //lidar 각도 pitch 10도
 
-
 // 생성자
 LiDAR_pre::LiDAR_pre()
 {

@@ -210,20 +210,3 @@ void calibration::projection(cv::Mat frame)
         ROS_ERROR("Calibration ERROR! %s", e.what());
     }
 }
-
-
-int main(int argc, char** argv)
-{
-    ros::init(argc, argv, "calibration");
-
-    ROS_INFO("Start Calibration, LiDAR_pre, Traffic...");
-    LiDAR_pre lp;
-
-    calibration cl;
-    Traffic tf;
-
-    ros::spin();
-
-    return 0;
-}
-
