@@ -27,6 +27,7 @@ double calculateDistance(const std::vector<double>& point1, const std::vector<do
 void obstacle_callback(const sensor_msgs::PointCloud2::ConstPtr& msg);
 void pose_callback(const geometry_msgs::PoseStamped::ConstPtr& msg);
 void gpath_callback(const nav_msgs::Path::ConstPtr& msg);
+void filter_obstacle();
 void make_candidate_path(std::shared_ptr<std::vector<std::vector<std::vector<double>>>> candidate_path_ptr);
 void vote_president_path(std::shared_ptr<std::vector<std::vector<std::vector<double>>>> candidate_path_ptr);
 void make_msg(std::shared_ptr<std::vector<std::vector<std::vector<double>>>> candidate_path_ptr, 
@@ -52,9 +53,11 @@ int main(int argc, char **argv){
 
     auto candidate_path_ptr = std::make_shared<std::vector<std::vector<std::vector<double>>>>();
 
-    make_candidate_path(candidate_path_ptr);
+    
 
     while(ros::ok()){
+        make_candidate_path(candidate_path_ptr);
+        filter_obstacle();
         vote_president_path(candidate_path_ptr);
         auto candidate_msg_ptr = std::make_shared<sensor_msgs::PointCloud>();
         auto president_msg_ptr = std::make_shared<sensor_msgs::PointCloud>();
@@ -105,14 +108,31 @@ void pose_callback(const geometry_msgs::PoseStamped::ConstPtr& msg){
     pose_ptr->at(2) = yaw; 
 }
 
+void filter_obstacle(){
+    std::vector<std::vector<double>> filtered_obstacle;
+    filtered_obstacle.reserve(obstacle_ptr->size()); 
+    for(int i=0; i < obstacle_ptr->size(); i++){
+        std::vector<double> pose;
+        pose = {pose_ptr->at(0), pose_ptr->at(1), 0.0};
+
+        if(calculateDistance(obstacle_ptr->at(i), pose) < 5){
+            filtered_obstacle.push_back(obstacle_ptr->at(i));
+        }
+    }
+    *obstacle_ptr = filtered_obstacle;
+}
+
 
 void make_candidate_path(std::shared_ptr<std::vector<std::vector<std::vector<double>>>> candidate_path_ptr){
     auto av_gap = 2 * angular_velocity / (num_of_path - 1);
+    candidate_path_ptr->clear();
+    candidate_path_ptr->reserve((num_of_path + 1));
 
     candidate_path_ptr->push_back(*global_path_ptr);
 
     for(int i = 0; i < num_of_path; i++){
         std::vector<std::vector<double>> candidate_i;
+        candidate_i.reserve(predict_time * 10);
         auto current_angular_velocity = angular_velocity - av_gap * i + pose_ptr->at(2);
         for(int j = 0; j < predict_time * 10; j++){
             std::vector<double> candidate_element = {pose_ptr->at(0) + velocity * j * 0.1 * std::cos(current_angular_velocity * j * 0.1), pose_ptr->at(1) + velocity * j * 0.1 * std::sin(current_angular_velocity * j * 0.1), 0.0};
