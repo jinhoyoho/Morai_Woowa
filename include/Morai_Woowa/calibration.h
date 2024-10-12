@@ -70,6 +70,11 @@ private:
     cv::Mat tvec;   // 이동 벡터
     cv::Mat distCoeffs;     // 왜곡 벡터
 
+    // 최소 좌표
+    double min_x;  
+    double min_y;
+    double min_z;
+
 public:
     calibration();  // 생성자
     

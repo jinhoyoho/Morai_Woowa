@@ -6,6 +6,10 @@ calibration::calibration()
     image_sub = nh.subscribe("python_image", 1, &calibration::image_callBack, this);
     lidar_sub = nh.subscribe("lidar_pre", 1, &calibration::lidar_callBack, this);
     object_sub = nh.subscribe("detected_object", 1, &calibration::object_callBack, this);
+    double min_x = 0;   // 최소 좌표
+    double min_y = 0;
+    double min_z = 0;
+
     this->do_cali();
 }
 
@@ -55,17 +59,6 @@ void calibration::object_callBack(const morai_woowa::obj_info::ConstPtr& msg)
         xmax = msg->xmax;
         xmin = msg->xmin;
         this->projection(frame);
-        try{
-            if(!frame.empty())
-            {
-                cv::imshow("Projection IMG", frame);
-                if(cv::waitKey(10) == 27) exit(1);
-            }
-        }
-        catch(cv_bridge::Exception& e)
-        {
-            ROS_ERROR("object_callBack %s", e.what());
-        }
     }
 }
 
@@ -143,6 +136,8 @@ void calibration::projection(cv::Mat frame)
             
             std::unordered_map<int, std::vector<double>> classDistances; // 클래스별 거리 저장
             std::unordered_map<int, int> classCount; // 클래스별 점 수 저장
+            std::map<int, std::vector<cv::Point3f>> classPoints;    // 클래스별 라이다 좌표 저장
+
 
             for (size_t i=0; i < imagePoints.size(); i++)
             {
@@ -165,11 +160,37 @@ void calibration::projection(cv::Mat frame)
                                                 lidarPoint.z * lidarPoint.z);
 
                     int classId = static_cast<int>(intensity[i]); // intensity를 클래스 ID로 변환
-                    // 거리 추가
-                    classDistances[classId].push_back(distance);
-                    classCount[classId]++;
+                    classDistances[classId].push_back(distance);    // 거리 저장
+                    classCount[classId]++;  // 개수 증가
+                    classPoints[classId].push_back(lidarPoint); // 라이다 좌표 저장
                 }
             }
+
+            
+            std::map<int, std::vector<cv::Point3f>> averagePoints;    // 클래스별 라이다 좌표 저장
+
+            // 클래스별 평균 계산 및 출력
+            for (const auto& entry : classPoints) {
+                int classId = entry.first;
+                const std::vector<cv::Point3f>& points = entry.second;
+
+                cv::Point3f average = {0.0, 0.0, 0.0};
+                for (const auto& point : points) {
+                    average.x += point.x;
+                    average.y += point.y;
+                    average.z += point.z;
+                }
+
+                if (!points.empty()) {
+                    average.x /= points.size();
+                    average.y /= points.size();
+                    average.z /= points.size();
+                }
+                averagePoints[classId].push_back(average);  // 평균 좌표 저장
+            }
+
+            double min_distance = 987654321.0;    // 최소 거리
+            
 
             // 평균 거리 계산
             for (const auto& entry : classDistances) {
@@ -182,8 +203,26 @@ void calibration::projection(cv::Mat frame)
                 }
 
                 double averageDistance = sum / classCount[classId];
-                
-                std::cout << "Class " << classId << ": Average Distance = " << averageDistance << std::endl;
+
+                if (min_distance > averageDistance) // 거리가 더 작다면
+                {
+                    min_distance = averageDistance; // 거리 갱신
+
+                    const std::vector<cv::Point3f>& averagePointPointer = averagePoints[classId];
+                    if(!averagePointPointer.empty())
+                    {
+                        min_x = averagePointPointer[0].x;   // 최소 거리 라이다 x 좌표
+                        min_y = averagePointPointer[0].y;   // 최소 거리 라이다 y 좌표
+                        min_z = averagePointPointer[0].z;   // 최소 거리 라이다 z 좌표
+                    }
+                }
+            }
+
+            // min_distance가 987654321 이 아닐때
+            if (min_distance != 987654321.0)
+            {
+                std::cout << "Distance: " << min_distance << "\n";
+                std::cout << "최소 라이다 좌표: " << min_x << " " << min_y << " " << min_z << "\n";
             }
         }
     }
