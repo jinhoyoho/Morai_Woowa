@@ -1,15 +1,18 @@
 #include <ros/ros.h>
 #include <sensor_msgs/PointCloud.h>
 #include <geometry_msgs/Point32.h>
-#include <geometry_msgs/Pose2D.h>
+#include <geometry_msgs/PoseStamped.h>
+#include <nav_msgs/Path.h>
 #include <vector>
 #include <memory>
 #include <pcl/point_cloud.h>
 #include <pcl/point_types.h>
 #include <pcl_conversions/pcl_conversions.h>
 #include <pcl/kdtree/kdtree_flann.h>
+#include <tf/tf.h>
 
 //2024 10 01 dwa가 동적 장애물을 받고 적용하도록 수정
+//2024 10 12 dwa global frame
 
 int num_of_path = 15;
 double predict_time = 3;
@@ -20,10 +23,11 @@ double global_path_cost = 0.1;
 
 const double PI = 3.1415926;
 
-void make_global_path();
 double calculateDistance(const std::vector<double>& point1, const std::vector<double>& point2);
 void obstacle_callback(const sensor_msgs::PointCloud2::ConstPtr& msg);
-void pose_callback(const geometry_msgs::Pose2D::ConstPtr& msg);
+void pose_callback(const geometry_msgs::PoseStamped::ConstPtr& msg);
+void gpath_callback(const nav_msgs::Path::ConstPtr& msg);
+void filter_obstacle();
 void make_candidate_path(std::shared_ptr<std::vector<std::vector<std::vector<double>>>> candidate_path_ptr);
 void vote_president_path(std::shared_ptr<std::vector<std::vector<std::vector<double>>>> candidate_path_ptr);
 void make_msg(std::shared_ptr<std::vector<std::vector<std::vector<double>>>> candidate_path_ptr, 
@@ -45,14 +49,15 @@ int main(int argc, char **argv){
     ros::Publisher president_pub = nh.advertise<sensor_msgs::PointCloud>("president_path", 100);
     ros::Subscriber obstacle_sub = nh.subscribe("obstacle", 100, obstacle_callback);
     ros::Subscriber pose_sub = nh.subscribe("current_pose", 100, pose_callback);
-
+    ros::Subscriber global_path = nh.subscribe("/gpath", 100, gpath_callback);
 
     auto candidate_path_ptr = std::make_shared<std::vector<std::vector<std::vector<double>>>>();
 
-    make_global_path();
-    make_candidate_path(candidate_path_ptr);
+    
 
     while(ros::ok()){
+        make_candidate_path(candidate_path_ptr);
+        filter_obstacle();
         vote_president_path(candidate_path_ptr);
         auto candidate_msg_ptr = std::make_shared<sensor_msgs::PointCloud>();
         auto president_msg_ptr = std::make_shared<sensor_msgs::PointCloud>();
@@ -71,33 +76,63 @@ void obstacle_callback(const sensor_msgs::PointCloud2::ConstPtr& msg){
     pcl::fromROSMsg(*msg, *cloud_ptr);
 }
 
-void pose_callback(const geometry_msgs::Pose2D::ConstPtr& msg){
-    pose_ptr->clear();
-    pose_ptr->resize(3);
-    pose_ptr->at(0) = msg->x;
-    pose_ptr->at(1) = msg->y;
-    pose_ptr->at(2) = msg->theta;
+void gpath_callback(const nav_msgs::Path::ConstPtr& msg) {
+    global_path_ptr->clear();
+    global_path_ptr->reserve(msg->poses.size());
+    for (const auto& pose_stamped : msg->poses) {
+        global_path_ptr->push_back({pose_stamped.pose.position.x, pose_stamped.pose.position.y, 0});
+    }
+    global_path_ptr->resize(predict_time * 10);
 }
 
-void make_global_path(){
-    auto global_path_len = 5.0;
-    global_path_ptr->clear();
-    for(int i =0; i < global_path_len * 10; i++){
-        std::vector<double> point(3);
-        point.at(0) = i * 0.1;
-        point.at(1) = 0.0;
-        point.at(2) = 0.0;
-        global_path_ptr->push_back(point);
-    }
+void pose_callback(const geometry_msgs::PoseStamped::ConstPtr& msg){
+    pose_ptr->clear();
+    pose_ptr->resize(3);
+
+    // Extract position
+    pose_ptr->at(0) = msg->pose.position.x;
+    pose_ptr->at(1) = msg->pose.position.y;
+
+    // Extract orientation (quaternion)
+    double qx = msg->pose.orientation.x;
+    double qy = msg->pose.orientation.y;
+    double qz = msg->pose.orientation.z;
+    double qw = msg->pose.orientation.w;
+
+    // Convert quaternion to yaw
+    tf::Quaternion quat(qx, qy, qz, qw);
+    tf::Matrix3x3 m(quat);
+    double roll, pitch, yaw;
+    m.getRPY(roll, pitch, yaw);
+
+    pose_ptr->at(2) = yaw; 
 }
+
+void filter_obstacle(){
+    std::vector<std::vector<double>> filtered_obstacle;
+    filtered_obstacle.reserve(obstacle_ptr->size()); 
+    for(int i=0; i < obstacle_ptr->size(); i++){
+        std::vector<double> pose;
+        pose = {pose_ptr->at(0), pose_ptr->at(1), 0.0};
+
+        if(calculateDistance(obstacle_ptr->at(i), pose) < 5){
+            filtered_obstacle.push_back(obstacle_ptr->at(i));
+        }
+    }
+    *obstacle_ptr = filtered_obstacle;
+}
+
 
 void make_candidate_path(std::shared_ptr<std::vector<std::vector<std::vector<double>>>> candidate_path_ptr){
     auto av_gap = 2 * angular_velocity / (num_of_path - 1);
+    candidate_path_ptr->clear();
+    candidate_path_ptr->reserve((num_of_path + 1));
 
     candidate_path_ptr->push_back(*global_path_ptr);
 
     for(int i = 0; i < num_of_path; i++){
         std::vector<std::vector<double>> candidate_i;
+        candidate_i.reserve(predict_time * 10);
         auto current_angular_velocity = angular_velocity - av_gap * i + pose_ptr->at(2);
         for(int j = 0; j < predict_time * 10; j++){
             std::vector<double> candidate_element = {pose_ptr->at(0) + velocity * j * 0.1 * std::cos(current_angular_velocity * j * 0.1), pose_ptr->at(1) + velocity * j * 0.1 * std::sin(current_angular_velocity * j * 0.1), 0.0};
