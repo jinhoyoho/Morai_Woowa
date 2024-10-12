@@ -16,9 +16,8 @@ class IMGParser:
     def __init__(self):
         rospy.init_node('image_parser', anonymous=True)
         self.image_sub = rospy.Subscriber("/image_jpeg/compressed", CompressedImage, self.callback)
-        self.image_pub = rospy.Publisher('python_image', Image, queue_size=10)
         self.traffic_image_pub = rospy.Publisher('traffic_image', Image, queue_size=10)
-        self.obj_pub = rospy.Publisher('detected_object', obj_info, queue_size=10)
+        self.obj_pub = rospy.Publisher('person', obj_info, queue_size=10)
         self.is_image = False
         self.br = CvBridge()
 
@@ -60,6 +59,8 @@ class IMGParser:
                         detected_obj.xmax = right
                         detected_obj.ymax = top
                         detected_obj.name = label
+                        detected_obj.image = self.br.cv2_to_imgmsg(image_copy)
+
 
                         # 이미지 크기 확인
                         if image_copy.size == 0 or image_copy.shape[0] == 0 or image_copy.shape[1] == 0:
@@ -68,12 +69,10 @@ class IMGParser:
 
                         # 인지된 객체 바운딩박스 그려준다.
                         image_copy = cv2.rectangle(image_copy, (left, bottom), (right, top), (0, 0, 255), 2)
-                        self.image_pub.publish(self.br.cv2_to_imgmsg(image_copy))
                         self.obj_pub.publish(detected_obj)
 
 
                     elif label == 'traffic light':
-                        detected_obj = obj_info()
                         left = int(box[0])
                         bottom = int(box[1])  # top보다 더 작음
                         right = int(box[2])

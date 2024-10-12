@@ -47,7 +47,6 @@ double lidar_z = 0.710;
 class calibration
 {
 private:
-    ros::Subscriber image_sub;
     ros::Subscriber lidar_sub;
     ros::Subscriber object_sub;
     

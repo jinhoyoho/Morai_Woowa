@@ -3,31 +3,14 @@
 calibration::calibration()
 {
     ros::NodeHandle nh;
-    image_sub = nh.subscribe("python_image", 1, &calibration::image_callBack, this);
     lidar_sub = nh.subscribe("lidar_pre", 1, &calibration::lidar_callBack, this);
-    object_sub = nh.subscribe("detected_object", 1, &calibration::object_callBack, this);
+    object_sub = nh.subscribe("person", 1, &calibration::object_callBack, this);
     double min_x = 0;   // 최소 좌표
     double min_y = 0;
     double min_z = 0;
 
     this->do_cali();
 }
-
-
-void calibration::image_callBack(const sensor_msgs::ImageConstPtr& msg)
-{
-    try
-    {
-        // bgr data가 수신되어 그냥 이용해도 된다
-        frame = cv::Mat(msg->height, msg->width, CV_8UC3, const_cast<unsigned char*>(msg->data.data()), msg->step);        
-    }
-    catch (cv_bridge::Exception& e)
-    {
-        ROS_ERROR("Could not convert image! %s", e.what());
-        ROS_ERROR("Received image encoding: %s", msg->encoding.c_str());
-    }
-}
-
 
 void calibration::lidar_callBack(const sensor_msgs::PointCloud2ConstPtr& msg)
 {
@@ -52,6 +35,8 @@ void calibration::lidar_callBack(const sensor_msgs::PointCloud2ConstPtr& msg)
 
 void calibration::object_callBack(const morai_woowa::obj_info::ConstPtr& msg)
 {
+    frame = cv::Mat(msg->image.height, msg->image.width, CV_8UC3, const_cast<unsigned char*>(msg->image.data.data()), msg->image.step);
+
     if (msg->name == "person")
     {
         ymax = msg->ymax;
@@ -60,6 +45,8 @@ void calibration::object_callBack(const morai_woowa::obj_info::ConstPtr& msg)
         xmin = msg->xmin;
         this->projection(frame);
     }
+    cv::imshow("Projection Image", frame);
+    if(cv::waitKey(10) == 27) exit(-1);
 }
 
 
