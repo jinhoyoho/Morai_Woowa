@@ -10,7 +10,7 @@ from sensor_msgs.msg import Image
 from cv_bridge import CvBridgeError, CvBridge
 from ultralytics import YOLO
 
-from Morai_Woowa.msg import obj_info
+from morai_woowa.msg import obj_info
 
 class IMGParser:
     def __init__(self):
@@ -66,10 +66,9 @@ class IMGParser:
                             rospy.logwarn("Empty image copy. Skipping publishing.")
                             continue  # 이미지가 유효하지 않으면 건너뜀
 
-                        self.image_pub.publish(self.br.cv2_to_imgmsg(image_copy))
-
                         # 인지된 객체 바운딩박스 그려준다.
                         image_copy = cv2.rectangle(image_copy, (left, bottom), (right, top), (0, 0, 255), 2)
+                        self.image_pub.publish(self.br.cv2_to_imgmsg(image_copy))
                         self.obj_pub.publish(detected_obj)
 
 
@@ -96,12 +95,7 @@ class IMGParser:
                             rospy.logwarn("Empty image copy. Skipping publishing.")
                             continue  # 이미지가 유효하지 않으면 건너뜀
 
-                        cv2.imwrite("./traffic_crop.jpg", traffic_image_copy)
-
                         self.traffic_image_pub.publish(self.br.cv2_to_imgmsg(traffic_image_copy))
-
-                    # self.image_pub.publish(self.br.cv2_to_imgmsg(image_copy))
-                
 
                 # img = results[0].plot()
             

@@ -6,9 +6,13 @@ calibration::calibration()
     image_sub = nh.subscribe("python_image", 1, &calibration::image_callBack, this);
     lidar_sub = nh.subscribe("lidar_pre", 1, &calibration::lidar_callBack, this);
     object_sub = nh.subscribe("detected_object", 1, &calibration::object_callBack, this);
-                 
+    double min_x = 0;   // 최소 좌표
+    double min_y = 0;
+    double min_z = 0;
+
     this->do_cali();
 }
+
 
 void calibration::image_callBack(const sensor_msgs::ImageConstPtr& msg)
 {
@@ -23,6 +27,7 @@ void calibration::image_callBack(const sensor_msgs::ImageConstPtr& msg)
         ROS_ERROR("Received image encoding: %s", msg->encoding.c_str());
     }
 }
+
 
 void calibration::lidar_callBack(const sensor_msgs::PointCloud2ConstPtr& msg)
 {
@@ -44,27 +49,18 @@ void calibration::lidar_callBack(const sensor_msgs::PointCloud2ConstPtr& msg)
     lidar_points = objectPoints;
 }
 
+
 void calibration::object_callBack(const morai_woowa::obj_info::ConstPtr& msg)
 {
     if (msg->name == "person")
     {
-    ymax = msg->ymax;
-    ymin = msg->ymin;
-    xmax = msg->xmax;
-    xmin = msg->xmin;
-    this->projection(frame);
-    }
-
-    try{
-        cv::imshow("Projection IMG", frame);
-        if(cv::waitKey(10) == 27) exit(1);
-    }
-    catch(cv_bridge::Exception& e)
-    {
-        ROS_ERROR("object_callBack %s", e.what());
+        ymax = msg->ymax;
+        ymin = msg->ymin;
+        xmax = msg->xmax;
+        xmin = msg->xmin;
+        this->projection(frame);
     }
 }
-
 
 
 Eigen::Matrix3d calibration::computeRotationMatrix(double roll, double pitch, double yaw) {
@@ -96,47 +92,7 @@ Eigen::Matrix3d calibration::computeRotationMatrix(double roll, double pitch, do
 
 void calibration::do_cali()
 {
-    // // camera 내부 파라미터 값 저장
-    // intrinsic << fx, skew_c, cx,
-    //              0, fy, cy,
-    //              0, 0, 1;
-
-    
-    // // LiDAR의 회전을 카메라 좌표계로 변환
-    // Eigen::Matrix3d total_rotation = computeRotationMatrix(90, 0, 90);
-    
-    // // 원점 좌표 저장
-    // camera_origin << camera_x, camera_y, camera_z;
-    // lidar_origin << lidar_x, lidar_y, lidar_z;
-
-    // // 변환 벡터 계산
-    // Eigen::Vector3d translation = lidar_origin - camera_origin;
-
-    // extrinsic.block<3, 3>(0, 0) = total_rotation;   // (0, 0)부터 3x3을 채워넣겠다
-    // extrinsic.block<3, 1>(0, 3) = translation;  // (0, 3)부터 3x1을 채워넣겠다
-
-
-    // std::cout << "Intrinsic parameter: \n";
-    // for(int i=0; i < intrinsic.rows(); i++)
-    // {
-    //     for(int j=0; j < intrinsic.cols(); j++)
-    //     {
-    //         std::cout << intrinsic(i, j) << " ";
-    //     }
-    //     std::cout << "\n";
-    // }
-
-    // std::cout << "Extrinsic parameter: \n";
-    // for(int i=0; i < extrinsic.rows(); i++)
-    // {
-    //     for(int j=0; j < extrinsic.cols(); j++)
-    //     {
-    //         std::cout << extrinsic(i, j) << " ";
-    //     }
-    //     std::cout << "\n";
-    // }
-
-        // 카메라 매트릭스, 회전 벡터, 변환 벡터 정의
+    // 카메라 내부 매트릭스, 회전 벡터, 변환 벡터 정의
     cameraMatrix = (cv::Mat_<double>(3, 3) << fx, 0, cx,
                                             0,fy, cy,
                                             0, 0, 1);
@@ -144,6 +100,7 @@ void calibration::do_cali()
     // cv::Mat rotate = (cv::Mat_<double>(3, 1) <<  90 * M_PI / 180, 0 * M_PI / 180, 0 * M_PI / 180); // 회전 없음
     // cv::Rodrigues(rotate, rvec);
     // rvec = cv::Mat(3, 3, CV_64F, extrinsic.data());
+
     rvec = (cv::Mat_<double>(3, 3) << 0, 0, 1,
                                     0,-1, 0,
                                     -1, 0, 0);
@@ -169,57 +126,104 @@ void calibration::do_cali()
 void calibration::projection(cv::Mat frame)
 {
     try{
-        // 이미지 포인트를 저장할 벡터
-        std::vector<cv::Point2f> imagePoints;
-
-        // 3D 포인트를 2D 이미지 평면으로 투영
-        try {
-            cv::projectPoints(lidar_points, rvec, tvec, cameraMatrix, distCoeffs, imagePoints);
-        } catch (const cv::Exception& e) {
-            ROS_ERROR("Projection ERROR! %s", e.what());
-        }
-
-        std::unordered_map<int, std::vector<double>> classDistances; // 클래스별 거리 저장
-        std::unordered_map<int, int> classCount; // 클래스별 점 수 저장
-
-        for (size_t i=0; i < imagePoints.size(); i++)
+        if(lidar_points.size())
         {
-            const auto& imagePoint = imagePoints[i];
-            int x = static_cast<int>(imagePoint.x); // X 좌표
-            int y = static_cast<int>(imagePoint.y); // Y 좌표
-            // 박스 안에 있을 때만 점 찍기
-            if ((xmin <= x) && (x <= xmax) && (ymin <= y) && (y <= ymax))
+             // 이미지 포인트를 저장할 벡터
+            std::vector<cv::Point2f> imagePoints;
+            
+            // 3D 포인트를 2D 이미지 평면으로 투영
+            cv::projectPoints(lidar_points, rvec, tvec, cameraMatrix, distCoeffs, imagePoints);
+            
+            std::unordered_map<int, std::vector<double>> classDistances; // 클래스별 거리 저장
+            std::unordered_map<int, int> classCount; // 클래스별 점 수 저장
+            std::map<int, std::vector<cv::Point3f>> classPoints;    // 클래스별 라이다 좌표 저장
+
+
+            for (size_t i=0; i < imagePoints.size(); i++)
             {
-                // 점 찍기 (빨간색)
-                cv::circle(frame, cv::Point(x, y), 2, cv::Scalar(0, 0, 255), -1);
+                const auto& imagePoint = imagePoints[i];
+                int x = static_cast<int>(imagePoint.x); // X 좌표
+                int y = static_cast<int>(imagePoint.y); // Y 좌표
+
+                // 박스 안에 있을 때만 점 찍기
+                if ((xmin <= x) && (x <= xmax) && (ymin <= y) && (y <= ymax))
+                {
+                    // 점 찍기 (빨간색)
+                    cv::circle(frame, cv::Point(x, y), 2, cv::Scalar(0, 0, 255), -1);
 
 
-                // 해당하는 픽셀 좌표의 LiDAR 거리 계산
-                const auto& lidarPoint = lidar_points[i]; // 해당하는 Lidar Point
+                    // 해당하는 픽셀 좌표의 LiDAR 거리 계산
+                    const auto& lidarPoint = lidar_points[i]; // 해당하는 Lidar Point
 
-                double distance = std::sqrt(lidarPoint.x * lidarPoint.x + 
-                                            lidarPoint.y * lidarPoint.y +
-                                            lidarPoint.z * lidarPoint.z);
+                    double distance = std::sqrt(lidarPoint.x * lidarPoint.x + 
+                                                lidarPoint.y * lidarPoint.y +
+                                                lidarPoint.z * lidarPoint.z);
 
-                int classId = static_cast<int>(intensity[i]); // intensity를 클래스 ID로 변환
-                // 거리 추가
-                classDistances[classId].push_back(distance);
-                classCount[classId]++;
+                    int classId = static_cast<int>(intensity[i]); // intensity를 클래스 ID로 변환
+                    classDistances[classId].push_back(distance);    // 거리 저장
+                    classCount[classId]++;  // 개수 증가
+                    classPoints[classId].push_back(lidarPoint); // 라이다 좌표 저장
+                }
             }
-        }
 
-        // 평균 거리 계산
-        for (const auto& entry : classDistances) {
-            int classId = entry.first;
-            const std::vector<double>& distances = entry.second;
+            
+            std::map<int, std::vector<cv::Point3f>> averagePoints;    // 클래스별 라이다 좌표 저장
 
-            double sum = 0.0;
-            for (double dist : distances) {
-                sum += dist;
+            // 클래스별 평균 계산 및 출력
+            for (const auto& entry : classPoints) {
+                int classId = entry.first;
+                const std::vector<cv::Point3f>& points = entry.second;
+
+                cv::Point3f average = {0.0, 0.0, 0.0};
+                for (const auto& point : points) {
+                    average.x += point.x;
+                    average.y += point.y;
+                    average.z += point.z;
+                }
+
+                if (!points.empty()) {
+                    average.x /= points.size();
+                    average.y /= points.size();
+                    average.z /= points.size();
+                }
+                averagePoints[classId].push_back(average);  // 평균 좌표 저장
             }
-            double averageDistance = sum / classCount[classId];
 
-            std::cout << "Class " << classId << ": Average Distance = " << averageDistance << std::endl;
+            double min_distance = 987654321.0;    // 최소 거리
+            
+
+            // 평균 거리 계산
+            for (const auto& entry : classDistances) {
+                int classId = entry.first;
+                const std::vector<double>& distances = entry.second;
+
+                double sum = 0.0;
+                for (double dist : distances) {
+                    sum += dist;
+                }
+
+                double averageDistance = sum / classCount[classId];
+
+                if (min_distance > averageDistance) // 거리가 더 작다면
+                {
+                    min_distance = averageDistance; // 거리 갱신
+
+                    const std::vector<cv::Point3f>& averagePointPointer = averagePoints[classId];
+                    if(!averagePointPointer.empty())
+                    {
+                        min_x = averagePointPointer[0].x;   // 최소 거리 라이다 x 좌표
+                        min_y = averagePointPointer[0].y;   // 최소 거리 라이다 y 좌표
+                        min_z = averagePointPointer[0].z;   // 최소 거리 라이다 z 좌표
+                    }
+                }
+            }
+
+            // min_distance가 987654321 이 아닐때
+            if (min_distance != 987654321.0)
+            {
+                std::cout << "Distance: " << min_distance << "\n";
+                std::cout << "최소 라이다 좌표: " << min_x << " " << min_y << " " << min_z << "\n";
+            }
         }
     }
     catch (cv_bridge::Exception& e)
@@ -244,71 +248,3 @@ int main(int argc, char** argv)
     return 0;
 }
 
-
-/*
-// 3D 포인트 (LiDAR 좌표계)
-    std::vector<cv::Point3f> objectPoints = {
-        cv::Point3f(7.6422, 2.0477, -0.18369),
-        cv::Point3f(4.3972, 0.44665, -0.41235),
-        cv::Point3f(3.931, -0.91476, 0),
-        cv::Point3f(3.931, -0.91476, 0),
-        cv::Point3f(3.931, -0.91476, 0)
-        
-    };
-
-    // 2D 포인트 (카메라 이미지 좌표계)
-    std::vector<cv::Point2f> imagePoints = {
-        cv::Point2f(66, 258),
-        cv::Point2f(206, 303),
-        cv::Point2f(505, 234),
-        cv::Point2f(505, 234),
-        cv::Point2f(505, 234)
-        
-    };
-
-    // 카메라 내적 매트릭스 (fx, fy, cx, cy)
-    cv::Mat cameraMatrix(3, 3, CV_64F, intrinsic.data());
-
-    // 왜곡 계수 (예: [k1, k2, p1, p2, k3])
-    cv::Mat distCoeffs = cv::Mat::zeros(4, 1, CV_64F); // 왜곡이 없는 경우
-
-    // 외부 파라미터 (회전 벡터와 이동 벡터)
-    cv::Mat rvec, tvec;
-
-    // solvePnP를 사용하여 외부 파라미터 계산
-    // bool success = cv::solvePnP(objectPoints, imagePoints, cameraMatrix, distCoeffs, rvec, tvec);
-
-    if (success) {
-        std::cout << "Rotation Vector:\n" << rvec << std::endl;
-        std::cout << "Translation Vector:\n" << tvec << std::endl;
-
-        // 회전 벡터를 회전 행렬로 변환
-        cv::Mat rotationMatrix;
-        cv::Rodrigues(rvec, rotationMatrix);
-        std::cout << "Rotation Matrix:\n" << rotationMatrix << std::endl;
-
-        // Eigen으로 변환
-        Eigen::Matrix3d R; // 3x3 회전 행렬
-       
-
-        // OpenCV 회전 행렬을 Eigen으로 변환
-        for (int i = 0; i < 3; ++i) {
-            for (int j = 0; j < 3; ++j) {
-                R(i, j) = rotationMatrix.at<double>(i, j);
-            }
-        }
-
-        // 이동 벡터를 Eigen으로 변환
-        Eigen::Vector3d t;
-        t << tvec.at<double>(0), tvec.at<double>(1), tvec.at<double>(2);
-
-        // extrinsic 매트릭스 구성
-        extrinsic.block<3, 3>(0, 0) = R; // 회전 행렬
-        extrinsic.block<3, 1>(0, 3) = t; // 이동 벡터
-
-        // 결과 출력
-        std::cout << "Extrinsic Parameters:\n" << extrinsic << std::endl;
-    } else {
-        std::cout << "solvePnP failed!" << std::endl;
-    }
-*/
