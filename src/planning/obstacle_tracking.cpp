@@ -33,6 +33,8 @@ void make_arrows();
 void make_obstacle_msg();
 void removeSmallClusters();
 
+int marker_id = 0;
+
 int main(int argc, char **argv){
     ros::init(argc, argv, "obstacle_tracking");
     ros::NodeHandle nh;
@@ -44,6 +46,7 @@ int main(int argc, char **argv){
 
     while (ros::ok()) {
         pcl::toROSMsg(*cloud_ptr, *cloud_msg_ptr);
+        std::cout<<arrow_array_ptr->markers.size()<<std::endl;
         marker_array_pub.publish(*arrow_array_ptr);
         obstacle_pub.publish(*obstacle_msg_ptr);
         loop_rate.sleep();
@@ -54,44 +57,50 @@ int main(int argc, char **argv){
 }
 
 void cluster_callback(const sensor_msgs::PointCloud2::ConstPtr& msg){
-    pcl::fromROSMsg(*msg, *cloud_ptr);
+    if(msg->data.size() != 0){
+
+        pcl::fromROSMsg(*msg, *cloud_ptr);
 
 
-    clusters_ptr->clear();
-    //classify
-    for(int i=0; i<cloud_ptr->size(); i++){
-        auto cluster_name = cloud_ptr->at(i).intensity;
-        if(cluster_name != -1){
-            if(cluster_name >= clusters_ptr->size()){
-                clusters_ptr->resize(cluster_name + 1);
+        clusters_ptr->clear();
+        //classify
+        for(int i=0; i<cloud_ptr->size(); i++){
+            auto cluster_name = cloud_ptr->at(i).intensity;
+            if(cluster_name != -1){
+                if(cluster_name >= clusters_ptr->size()){
+                    clusters_ptr->resize(cluster_name + 1);
+                }
+                clusters_ptr->at(cluster_name).push_back(cloud_ptr->at(i));
             }
-            clusters_ptr->at(cluster_name).push_back(cloud_ptr->at(i));
         }
-    }
-    removeSmallClusters();
+        removeSmallClusters();
 
-    center_points_ptr->resize(clusters_ptr->size());
+        center_points_ptr->clear();
+        center_points_ptr->resize(clusters_ptr->size());
 
-    // 중심 구하기
-    for(int i=0; i<clusters_ptr->size(); i++){
-        auto center_point = get_center(clusters_ptr->at(i).makeShared());
-        center_points_ptr->at(i) = center_point;
+        // 중심 구하기
+        for(int i=0; i<clusters_ptr->size(); i++){
+            auto center_point = get_center(clusters_ptr->at(i).makeShared());
+            center_points_ptr->at(i) = center_point;
+        }
+
+        // 데이터 쌓기
+        if(center_points_ptr->size()>0){
+            center_points_history_ptr->push_back(*center_points_ptr);
+        }
+        
+        if(center_points_history_ptr->size() > 10){
+            center_points_history_ptr->erase(center_points_history_ptr->begin());
+        }
+
+        if(center_points_history_ptr->size() == 10){
+            tracking();
+            make_arrows();
+            make_obstacle_msg();
+        }
+
     }
 
-    // 데이터 쌓기
-    if(center_points_ptr->size()>0){
-        center_points_history_ptr->push_back(*center_points_ptr);
-    }
-    
-    if(center_points_history_ptr->size() > 10){
-        center_points_history_ptr->erase(center_points_history_ptr->begin());
-    }
-
-    if(center_points_history_ptr->size() == 10){
-        tracking();
-        make_arrows();
-        make_obstacle_msg();
-    }
 
 }
 
@@ -160,8 +169,20 @@ void tracking(){
             auto nearest_point = target_scene.at(pointIdxNKNSearch[0]);
 
             if(pointNKNSquaredDistance[0]<1){
-                translation_ptr->at(i).x += - nearest_point.x + search_point.x;
-                translation_ptr->at(i).y += - nearest_point.y + search_point.y;   
+                if(- nearest_point.x + search_point.x < 0.5){
+                    translation_ptr->at(i).x += - nearest_point.x + search_point.x;
+                }
+                else{
+                    translation_ptr->at(i).x = 0.0;
+                }
+                
+                if(- nearest_point.y + search_point.y < 0.5){
+                    translation_ptr->at(i).y += - nearest_point.y + search_point.y;  
+                }
+                else{
+                    translation_ptr->at(i).y = 0.0;
+                }
+                 
                 translation_ptr->at(i).z += 0.1;
                 search_point = nearest_point;
             }
@@ -171,53 +192,73 @@ void tracking(){
 }
 
 
-void make_arrows(){
-    arrow_array_ptr->markers.clear();
-    for(int i=0; i<translation_ptr->size(); i++){
+void make_arrows() {
+    // 먼저 기존 마커들을 삭제
+    for (int i = 0; i < arrow_array_ptr->markers.size(); i++) {
+        visualization_msgs::Marker delete_marker;
+        delete_marker.header.frame_id = "map";  // 'map' 좌표계 기준
+        delete_marker.header.stamp = ros::Time::now();
+        delete_marker.ns = "arrows";
+        delete_marker.id = arrow_array_ptr->markers[i].id;  // 기존 마커의 id로 삭제
+        delete_marker.action = visualization_msgs::Marker::DELETE;  // 마커 삭제 명령
+
+        // 삭제 마커를 퍼블리시할 배열에 추가
+        arrow_array_ptr->markers[i] = delete_marker;
+    }
+    
+    // 마커를 초기화하고 새 마커들을 추가
+    // arrow_array_ptr->markers.clear();  // 이전 마커 모두 지운 후 초기화
+
+    for (int i = 0; i < translation_ptr->size(); i++) {
         visualization_msgs::Marker marker;
-            // Marker의 프레임 설정
-            marker.header.frame_id = "map";  // 'map' 좌표계 기준
-            marker.header.stamp = ros::Time::now();
 
-            // Marker의 네임스페이스와 ID 설정
-            marker.ns = "arrows";
-            marker.id = i;  // 각 마커는 고유한 ID를 가져야 함
+        // Marker의 프레임 설정
+        marker.header.frame_id = "map";  // 'map' 좌표계 기준
+        marker.header.stamp = ros::Time::now();
 
-            // 화살표 타입으로 설정
-            marker.type = visualization_msgs::Marker::ARROW;
+        // Marker의 네임스페이스와 ID 설정
+        marker.ns = "arrows";
+        marker.id = marker_id;  // 각 마커는 고유한 ID를 가져야 함
+        marker_id++;
 
-            // 화살표 동작 설정 (ADD는 새로운 화살표를 추가하거나 업데이트)
-            marker.action = visualization_msgs::Marker::ADD;
+        // 화살표 타입으로 설정
+        marker.type = visualization_msgs::Marker::ARROW;
 
-            // 화살표 시작점과 끝점을 설정
-            geometry_msgs::Point start_point;
-            start_point.x = center_points_ptr->at(i).x;  // X축을 따라 화살표가 멀어지도록 설정
-            start_point.y = center_points_ptr->at(i).y;
-            start_point.z = 0.0;
+        // 화살표 동작 설정 (ADD는 새로운 화살표를 추가하거나 업데이트)
+        marker.action = visualization_msgs::Marker::ADD;
 
-            geometry_msgs::Point end_point;
-            double tracking_time = translation_ptr->at(i).z;
-            end_point.x = center_points_ptr->at(i).x + translation_ptr->at(i).x / tracking_time;
-            end_point.y = center_points_ptr->at(i).y + translation_ptr->at(i).y / tracking_time;
-            end_point.z = 0.0;
+        // 화살표 시작점과 끝점을 설정
+        geometry_msgs::Point start_point;
+        start_point.x = center_points_ptr->at(i).x;  // X축을 따라 화살표가 멀어지도록 설정
+        start_point.y = center_points_ptr->at(i).y;
+        start_point.z = 0.0;
 
-            // 화살표 크기 설정
-            marker.scale.x = 0.1;  // 화살표의 길이
-            marker.scale.y = 0.2;  // 화살표의 두께
-            marker.scale.z = 0.2;  // 화살표 머리의 크기
+        geometry_msgs::Point end_point;
+        double tracking_time = translation_ptr->at(i).z;
+        end_point.x = center_points_ptr->at(i).x + translation_ptr->at(i).x / tracking_time;
+        end_point.y = center_points_ptr->at(i).y + translation_ptr->at(i).y / tracking_time;
+        end_point.z = 0.0;
 
-            // 화살표 색상 설정 (RGBA 형식)
-            marker.color.r = 1.0f;  // 점점 색이 변하도록 설정
-            marker.color.g = 0.2f;
-            marker.color.b = 0.0f;
-            marker.color.a = 1.0f;  // 불투명
+        // 화살표 크기 설정
+        marker.scale.x = 0.1;  // 화살표의 길이
+        marker.scale.y = 0.2;  // 화살표의 두께
+        marker.scale.z = 0.2;  // 화살표 머리의 크기
 
-            marker.points.push_back(start_point);
-            marker.points.push_back(end_point);
+        // 화살표 색상 설정 (RGBA 형식)
+        marker.color.r = 1.0f;
+        marker.color.g = 0.2f;
+        marker.color.b = 0.0f;
+        marker.color.a = 1.0f;
 
-            arrow_array_ptr->markers.push_back(marker);
+        // 화살표 시작점과 끝점을 설정
+        marker.points.push_back(start_point);
+        marker.points.push_back(end_point);
+
+        // 마커를 마커 배열에 추가
+        arrow_array_ptr->markers.push_back(marker);
     }
 }
+
 
 void make_obstacle_msg(){
     obstacle_ptr->clear();

@@ -1,6 +1,8 @@
 #include "Morai_Woowa/LiDAR_pre.h"
 //#include "LiDAR_pre.h"
 
+//lidar 각도 pitch 10도
+
 
 // 생성자
 LiDAR_pre::LiDAR_pre()
@@ -112,12 +114,12 @@ void LiDAR_pre::roi()
     // Apply Passthrough Filter
     pass.setInputCloud(raw_data_p_);
     pass.setFilterFieldName("z");
-    pass.setFilterLimits(-2, 1);   // 상하거리
+    pass.setFilterLimits(-0.7, 30);   // 상하거리
     pass.filter(*raw_data_p_);
 
     pass.setInputCloud(raw_data_p_);
     pass.setFilterFieldName("x");
-    pass.setFilterLimits(0, 55);  // 앞뒤거리
+    pass.setFilterLimits(0, 10);  // 앞뒤거리
     pass.filter(*raw_data_p_);
 
     pass.setInputCloud(raw_data_p_);
@@ -175,7 +177,7 @@ void LiDAR_pre::ransac()
 	seg.setModelType(pcl::SACMODEL_PLANE);    // 모델 타입은 평면
 	seg.setMethodType(pcl::SAC_RANSAC);       // RANSAC 방법 사용
 	seg.setMaxIterations(3000);               // 최대 실행 수
-	seg.setDistanceThreshold(0.08);          // 최대 거리
+	seg.setDistanceThreshold(0.15);          // 최대 거리
 	seg.setInputCloud(voxel_data_p_);        //입력 클라우드
 	seg.segment(*inliers, *coefficients);    // 인라이어 인덱스와 모델 계수를 계산
 

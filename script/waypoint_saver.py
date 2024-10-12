@@ -11,7 +11,7 @@ class PoseSaver:
     def __init__(self):
         rospy.init_node('pose_saver', anonymous=True)
 
-        self.path_name = "test_path.csv"
+        self.path_name = "indoor_0_2.csv"
         self.save_directory = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), 'path')
 
         self.pose_sub = rospy.Subscriber('current_pose', PoseStamped, self.pose_callback)
@@ -30,7 +30,7 @@ class PoseSaver:
 
         distance = self.calculate_distance(self.last_saved_pose, current_pose)
 
-        if distance >= 0.3:  # 0.3m 간격 
+        if distance >= 0.1:  # 0.3m 간격 
             self.last_saved_pose = current_pose
             self.save_pose(current_pose)
 

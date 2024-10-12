@@ -32,7 +32,7 @@ void make_candidate_path(std::shared_ptr<std::vector<std::vector<std::vector<dou
 void vote_president_path(std::shared_ptr<std::vector<std::vector<std::vector<double>>>> candidate_path_ptr);
 void make_msg(std::shared_ptr<std::vector<std::vector<std::vector<double>>>> candidate_path_ptr, 
              std::shared_ptr<std::vector<std::vector<double>>> president_path_ptr,
-             std::shared_ptr<sensor_msgs::PointCloud> candidate_msg_ptr, std::shared_ptr<sensor_msgs::PointCloud> president_msg_ptr);
+             std::shared_ptr<sensor_msgs::PointCloud> candidate_msg_ptr, std::shared_ptr<nav_msgs::Path> president_msg_ptr);
 
 auto obstacle_ptr = std::make_shared<std::vector<std::vector<double>>>();
 auto pose_ptr = std::make_shared<std::vector<double>>(3);
@@ -46,7 +46,7 @@ int main(int argc, char **argv){
     ros::NodeHandle nh;
     ros::Rate loop_rate(10);
     ros::Publisher candidate_pub = nh.advertise<sensor_msgs::PointCloud>("candidate_path", 100);
-    ros::Publisher president_pub = nh.advertise<sensor_msgs::PointCloud>("president_path", 100);
+    ros::Publisher president_pub = nh.advertise<nav_msgs::Path>("lpath", 100);
     ros::Subscriber obstacle_sub = nh.subscribe("obstacle", 100, obstacle_callback);
     ros::Subscriber pose_sub = nh.subscribe("current_pose", 100, pose_callback);
     ros::Subscriber global_path = nh.subscribe("/gpath", 100, gpath_callback);
@@ -56,15 +56,22 @@ int main(int argc, char **argv){
     
 
     while(ros::ok()){
-        make_candidate_path(candidate_path_ptr);
-        filter_obstacle();
-        vote_president_path(candidate_path_ptr);
-        auto candidate_msg_ptr = std::make_shared<sensor_msgs::PointCloud>();
-        auto president_msg_ptr = std::make_shared<sensor_msgs::PointCloud>();
-        make_msg(candidate_path_ptr, president_path_ptr, candidate_msg_ptr, president_msg_ptr);
-        president_pub.publish(*president_msg_ptr);
-        candidate_pub.publish(*candidate_msg_ptr);
-        std::cout<<"================"<<std::endl;
+        std::cout<<global_path_ptr->size()<<std::endl;
+        if(global_path_ptr->size()>0){
+
+            make_candidate_path(candidate_path_ptr);
+
+            filter_obstacle();
+
+            vote_president_path(candidate_path_ptr);
+            auto candidate_msg_ptr = std::make_shared<sensor_msgs::PointCloud>();
+            auto president_msg_ptr = std::make_shared<nav_msgs::Path>();
+            make_msg(candidate_path_ptr, president_path_ptr, candidate_msg_ptr, president_msg_ptr);
+            president_pub.publish(*president_msg_ptr);
+            candidate_pub.publish(*candidate_msg_ptr);
+            std::cout<<"================"<<std::endl;
+        }
+
         ros::spinOnce();
         loop_rate.sleep();
     }
@@ -79,21 +86,29 @@ void obstacle_callback(const sensor_msgs::PointCloud2::ConstPtr& msg){
 void gpath_callback(const nav_msgs::Path::ConstPtr& msg) {
     global_path_ptr->clear();
     global_path_ptr->reserve(msg->poses.size());
-    auto flag = false;
-    for (const auto& pose_stamped : msg->poses) {
-        if(calculateDistance({pose_stamped.pose.position.x, pose_stamped.pose.position.y, 0}, {pose_ptr->at(0), pose_ptr->at(1), 0}) < 0.5){
-            flag = true;
+    int idx = 0;
+    for (int i=0; i< msg->poses.size(); i++){
+        auto g_x = msg->poses.at(i).pose.position.x;
+        auto g_y = msg->poses.at(i).pose.position.y;
+        if(calculateDistance({g_x, g_y, 0.0}, {pose_ptr->at(0), pose_ptr->at(1), 0.0}) < 0.5){
+            idx = i;
+            break;
         }
-        if(flag == true){
-            global_path_ptr->push_back({pose_stamped.pose.position.x, pose_stamped.pose.position.y, 0});
-        }
-        
     }
 
-    if(global_path_ptr->size() > predict_time * 10){
-        global_path_ptr->resize(predict_time * 10);
+    for (int i = 0; i < msg->poses.size(); i++) {
+        double x = msg->poses[i].pose.position.x;
+        double y = msg->poses[i].pose.position.y;
+        global_path_ptr->push_back({x, y, 0});  // x, y를 vector로 저장
     }
     
+    std::vector<std::vector<double>> sliced(global_path_ptr->begin()+idx, global_path_ptr->end());
+
+    if(sliced.size() > predict_time * 10){
+        sliced.resize(predict_time * 10);
+    }
+
+    *global_path_ptr = sliced;
 }
 
 void pose_callback(const geometry_msgs::PoseStamped::ConstPtr& msg){
@@ -141,16 +156,19 @@ void make_candidate_path(std::shared_ptr<std::vector<std::vector<std::vector<dou
 
     candidate_path_ptr->push_back(*global_path_ptr);
 
+    std::cout<<"01"<<std::endl;
     for(int i = 0; i < num_of_path; i++){
         std::vector<std::vector<double>> candidate_i;
-        candidate_i.reserve(predict_time * 10);
-        auto current_angular_velocity = angular_velocity - av_gap * i + pose_ptr->at(2);
-        for(int j = 0; j < predict_time * 10; j++){
-            std::vector<double> candidate_element = {pose_ptr->at(0) + velocity * j * 0.1 * std::cos(current_angular_velocity * j * 0.1), pose_ptr->at(1) + velocity * j * 0.1 * std::sin(current_angular_velocity * j * 0.1), 0.0};
+        candidate_i.reserve(global_path_ptr->size());
+        auto current_angular_velocity = angular_velocity - av_gap * i ;
+        for(double j = 0.0; j < global_path_ptr->size(); j++){
+            auto time = j * 0.1;
+            std::vector<double> candidate_element = {pose_ptr->at(0) + velocity * time * std::cos(current_angular_velocity * time + pose_ptr->at(2)), pose_ptr->at(1) + velocity * time * std::sin(current_angular_velocity * time + pose_ptr->at(2)), 0.0};
             candidate_i.push_back(candidate_element); 
         }
         candidate_path_ptr->push_back(candidate_i); 
     }
+    std::cout<<"02"<<std::endl;
 }
 
 void vote_president_path(std::shared_ptr<std::vector<std::vector<std::vector<double>>>> candidate_path_ptr){
@@ -211,31 +229,49 @@ void vote_president_path(std::shared_ptr<std::vector<std::vector<std::vector<dou
 
 void make_msg(std::shared_ptr<std::vector<std::vector<std::vector<double>>>> candidate_path_ptr, 
              std::shared_ptr<std::vector<std::vector<double>>> president_path_ptr,
-             std::shared_ptr<sensor_msgs::PointCloud> candidate_msg_ptr, std::shared_ptr<sensor_msgs::PointCloud> president_msg_ptr){
+             std::shared_ptr<sensor_msgs::PointCloud> candidate_msg_ptr, std::shared_ptr<nav_msgs::Path> president_msg_ptr){
 
-                for(int i = 0; i < candidate_path_ptr->size(); i++){
-                    auto candidate_i = candidate_path_ptr->at(i);
-                    for(int j = 0; j < candidate_i.size(); j++){
-                        auto element = candidate_i.at(j);
-                        geometry_msgs::Point32 point;
-                        point.x = element.at(0);
-                        point.y = element.at(1);
-                        point.z = 0.0;
-                        candidate_msg_ptr->points.push_back(point);
-                    }
-                }
-                candidate_msg_ptr->header.frame_id = "map";
+    // 후보 경로 (candidate_path_ptr) 처리
+    for(int i = 0; i < candidate_path_ptr->size(); i++){
+        auto candidate_i = candidate_path_ptr->at(i);
+        for(int j = 0; j < candidate_i.size(); j++){
+            auto element = candidate_i.at(j);
+            geometry_msgs::Point32 point;
+            point.x = element.at(0);
+            point.y = element.at(1);
+            point.z = 0.0;
+            candidate_msg_ptr->points.push_back(point);
+        }
+    }
+    candidate_msg_ptr->header.frame_id = "map";
 
-                for(int j = 0; j < president_path_ptr->size(); j++){
-                    auto element = president_path_ptr->at(j);
-                    geometry_msgs::Point32 point;
-                    point.x = element.at(0);
-                    point.y = element.at(1);
-                    point.z = 0.0;
-                    president_msg_ptr->points.push_back(point);
-                }
-                president_msg_ptr->header.frame_id = "map";
-            }
+    // 대통령 경로 (president_path_ptr) 처리, nav_msgs::Path로 변환
+    for(int j = 0; j < president_path_ptr->size(); j++){
+        auto element = president_path_ptr->at(j);
+        
+        geometry_msgs::PoseStamped pose_stamped;
+        pose_stamped.header.frame_id = "map";  // frame_id 설정
+        pose_stamped.header.stamp = ros::Time::now();  // 현재 시간
+
+        // 위치 설정
+        pose_stamped.pose.position.x = element.at(0);
+        pose_stamped.pose.position.y = element.at(1);
+        pose_stamped.pose.position.z = 0.0;
+
+        // 방향 (orientation)은 기본적으로 단위 쿼터니언 사용
+        pose_stamped.pose.orientation.x = 0.0;
+        pose_stamped.pose.orientation.y = 0.0;
+        pose_stamped.pose.orientation.z = 0.0;
+        pose_stamped.pose.orientation.w = 1.0;
+
+        // 대통령 경로에 추가
+        president_msg_ptr->poses.push_back(pose_stamped);
+    }
+
+    // president_msg_ptr의 헤더 설정
+    president_msg_ptr->header.frame_id = "map";
+    president_msg_ptr->header.stamp = ros::Time::now();
+}
 
 double calculateDistance(const std::vector<double>& point1, const std::vector<double>& point2) {
     double distance = std::sqrt(
