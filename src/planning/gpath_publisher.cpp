@@ -9,16 +9,16 @@
 int main(int argc, char** argv) {
     ros::init(argc, argv, "csv_path_publisher");
     ros::NodeHandle nh;
-    ros::Publisher path_pub = nh.advertise<nav_msgs::Path>("path_topic", 10);
+    ros::Publisher path_pub = nh.advertise<nav_msgs::Path>("/gpath", 10);
 
     // Create a Path message object
     nav_msgs::Path path;
     path.header.frame_id = "map";  // Set the frame ID to an appropriate value
 
     // Open the CSV file
-
+    
     // 여기서 파일 이름만 바꿔
-    std::ifstream file("/home/leesh/catkin_ws/src/Morai_Woowa/path/test_path.csv");
+    std::ifstream file("/home/user/catkin_ws/src/Morai_Woowa/path/indoor_0_1.csv");
     if (!file.is_open()) {
         ROS_ERROR("Failed to open file.");
         return -1;

@@ -142,7 +142,6 @@ double PurePursuitController::calculateCurvature() {
     // 곡률 계산
     double kappa = fabs((x2 - x1)*(y3 - y1) - (y2 - y1)*(x3 - x1)) /
                    (pow((x2 - x1)*(x2 - x1) + (y2 - y1)*(y2 - y1), 1.5) + 1e-6);
-
     return kappa;
 }
 
@@ -154,7 +153,7 @@ void PurePursuitController::controlLoop() {
         double curvature = calculateCurvature();
 
         // 곡률에 따른 속도 조절
-        double max_speed = 3.0; // 최대 속도 (m/s)
+        double max_speed = 7.2; // 최대 속도 (m/s)
         double min_speed = 1.0; // 최소 속도 (m/s)
         double speed;
 

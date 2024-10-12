@@ -68,8 +68,8 @@ include_directories(
  ${PCL_INCLUDE_DIRS}
 )
 
-add_executable(calibration src/sensor/calibration.cpp src/sensor/LiDAR_pre.cpp src/sensor/traffic.cpp)
-target_link_libraries(calibration ${catkin_LIBRARIES} ${OpenCV_LIBS})
+# add_executable(calibration src/sensor/calibration.cpp src/sensor/LiDAR_pre.cpp src/sensor/traffic.cpp)
+# target_link_libraries(calibration ${catkin_LIBRARIES} ${OpenCV_LIBS})
 
 
 ##from sanghun
@@ -87,6 +87,13 @@ target_link_libraries(obstacle_tracking
 
 add_executable(dwa src/planning/dwa.cpp)
 target_link_libraries(dwa
+  ${catkin_LIBRARIES}
+  ${PCL_LIBRARIES}
+)
+
+
+add_executable(gpath_publisher src/planning/gpath_publisher.cpp)
+target_link_libraries(gpath_publisher
   ${catkin_LIBRARIES}
   ${PCL_LIBRARIES}
 )

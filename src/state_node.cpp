@@ -59,7 +59,6 @@ public:
         current_pose_sub_ = nh_.subscribe("/current_pose", 10, &StateNode::currentPoseCallback, this);
         waypoint_pub_ = nh_.advertise<geometry_msgs::PoseStamped>("/waypoints", 10);  // PoseStamped 퍼블리셔
         waypoint_marker_pub_ = nh_.advertise<visualization_msgs::Marker>("/globalpath", 10, this);
-
     }
 
     void currentPoseCallback(const geometry_msgs::PoseStamped::ConstPtr& msg) {
@@ -73,8 +72,10 @@ public:
             ROS_WARN("No waypoints available.");
         }
     }
-    void PublishWaypoints(path waypoints) {
-        for (const auto& waypoint : waypoints) {
+
+
+    void PublishWaypoints(path waypoints_) {
+        for (const auto& waypoint : waypoints_) {
             geometry_msgs::PoseStamped pose_stamped;
             pose_stamped.header.frame_id = "map";
             pose_stamped.header.stamp = ros::Time::now();
@@ -155,6 +156,7 @@ public:
 
         return pick_srv.response.response.result;
     }
+
 
     void loadWaypoints(std::string waypoint_file_, path &waypoints_) {
 
@@ -402,11 +404,14 @@ int main(int argc, char** argv) {
 
     StateNode StateNode;
 
-    std::thread thread(&StateNode::state, &StateNode);
+    path waypoints;
+    StateNode.loadWaypoints("/path/to/waypoints.csv", waypoints);
+    StateNode.PublishWaypoints(waypoints);
+
 
     ros::spin();
     
-    thread.join();  // 스레드가 종료될 때까지 대기
+    //thread.join();  // 스레드가 종료될 때까지 대기
 
     return 0;
 }
