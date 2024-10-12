@@ -29,6 +29,15 @@ double cy = 240.0;
 // skew coefficient
 double skew_c = 0;
 
+// camera origin
+double camera_x = 0.2;
+double camera_y = -0.130;
+double camera_z = 0.744;
+
+// lidar origin
+double lidar_x = 0.2;
+double lidar_y = 0.0;
+double lidar_z = 0.710;
 
 class calibration
 {
@@ -46,12 +55,23 @@ private:
 
     pcl::PointCloud<pcl::PointXYZI> cloud;   // pointcloud 저장
 
+    Eigen::Matrix<double, 3, 4> combined_matrix; // intrisic x extrinsic
+
+    Eigen::Vector3d camera_origin; // 카메라 원점
+    Eigen::Vector3d lidar_origin; // 라이다 원점
 
     // box 크기
     int xmin;
     int xmax;
     int ymin;
     int ymax;
+
+    
+    std::vector<cv::Point3f> lidar_points;   // 라이다
+    cv::Mat cameraMatrix;
+    cv::Mat rvec;
+    cv::Mat tvec;
+    cv::Mat distCoeffs;
 
 public:
     calibration();  // 생성자
@@ -60,6 +80,8 @@ public:
     void lidar_callBack(const sensor_msgs::PointCloud2ConstPtr& msg); // Lidar 받기
     void object_callBack(const morai_woowa::obj_info::ConstPtr& msg);
     void do_cali();  // calibration 실행
-    void projection(); // 라이다 점을 이미지에 투영
+    void projection(cv::Mat frame); // 라이다 점을 이미지에 투영
+
+    Eigen::Matrix3d computeRotationMatrix(double roll, double pitch, double yaw);
 
 };

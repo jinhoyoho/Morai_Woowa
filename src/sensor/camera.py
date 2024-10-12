@@ -100,6 +100,8 @@ class IMGParser:
 
                         self.traffic_image_pub.publish(self.br.cv2_to_imgmsg(traffic_image_copy))
 
+                    # self.image_pub.publish(self.br.cv2_to_imgmsg(image_copy))
+                
 
                 # img = results[0].plot()
             
