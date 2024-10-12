@@ -1,13 +1,13 @@
+/*
 #include <ros/ros.h>
 #include <ros/package.h>  
 #include <geometry_msgs/PoseStamped.h>
 #include <visualization_msgs/Marker.h>
 #include "morai_msgs/WoowaDillyEventCmdSrv.h"
+#include "morai_msgs/DillyCmd.h"
+#include "morai_msgs/DillyCmdResponse.h"
+#include "Morai_Woowa/way_point.h"
 #include <tf/transform_datatypes.h>
-
-#include <actionlib/client/simple_action_client.h>
-#include "morai_woowa/Planning_Tracking_ActAction.h"
-#include "morai_woowa/Person_Collision_ActAction.h"
 
 #include <vector>
 #include <fstream>
@@ -18,41 +18,19 @@
 #include <filesystem>
 #include <thread>  // 스레드 사용을 위한 헤더
 
-
-struct Waypoint {
-    double x;
-    double y;
-    double heading;
-    int index;
-};
-
 typedef std::vector<Waypoint> path;
 
-class StateNode{ 
+class StateNode {
 public:
-    StateNode(): 
-    planning_tracking_ac_(nh_, "planning_tracking_action", true),
-    person_collision_ac_(nh_, "person_collision_action", true)
-    {
-        if (planning_tracking_ac_.waitForServer(ros::Duration(5.0))) {  // 5초 대기
-            ROS_INFO("Connected to planning_tracking server");
-        } else {
-            ROS_WARN("planning_tracking server not available!");
-        }
-        
-        if (person_collision_ac_.waitForServer(ros::Duration(5.0))) {  // 5초 대기
-            ROS_INFO("Connected to person_collision server");
-        } else {
-            ROS_WARN("person_collision server not available!");
-        }
+    StateNode() : closest_index_(-1) {
+        //path폴더안에 path파일 이름!!!!!
+        std::string filename = "test_path.csv";
+        std::string current_path = ros::package::getPath("morai_woowa"); // 패키지 경로를 가져옵니다
+        waypoint_file_ = current_path + "/path/" + filename;
 
-        closest_index_ = -1;
-
-        is_planning_action_finished_ = false;
-        is_reach_target_point = false;
-
-        is_collision_action_finished_ = false;
-        is_success_collision = false;
+        nh_.param<std::string>("/state_node/waypoint_file1", waypoint_file_1_, "waypoints.csv");
+        nh_.param<std::string>("/state_node/waypoint_file2", waypoint_file_2_, "waypoints.csv");
+        nh_.param<std::string>("/state_node/waypoint_file3", waypoint_file_3_, "waypoints.csv");
 
         delivery_pickup_client_ = nh_.serviceClient<morai_msgs::WoowaDillyEventCmdSrv>("/WoowaDillyEventCmd");
 
@@ -60,11 +38,14 @@ public:
         waypoint_pub_ = nh_.advertise<geometry_msgs::PoseStamped>("/waypoints", 10);  // PoseStamped 퍼블리셔
         waypoint_marker_pub_ = nh_.advertise<visualization_msgs::Marker>("/globalpath", 10, this);
 
+        loadWaypoints(waypoint_file_1_, waypoints_1_);  // waypoint 파일에서 로드
+        loadWaypoints(waypoint_file_2_, waypoints_2_);  // waypoint 파일에서 로드
+        loadWaypoints(waypoint_file_3_, waypoints_3_);  // waypoint 파일에서 로드
     }
 
     void currentPoseCallback(const geometry_msgs::PoseStamped::ConstPtr& msg) {
 
-        closest_index_ = findClosestWaypoint(msg->pose.position.x, msg->pose.position.y, closest_index_, waypoints_);
+        closest_index_ = findClosestWaypoint(msg->pose.position.x, msg->pose.position.y, closest_index_, waypoints_1_);
         
         if (closest_index_ != -1) {
             ROS_INFO("Current Position: (X: %.2f, Y: %.2f) is nearest to Waypoint Index: %d", msg->pose.position.x, msg->pose.position.y, closest_index_);
@@ -73,6 +54,18 @@ public:
             ROS_WARN("No waypoints available.");
         }
     }
+
+    void pub_waypoints() {
+        // CSV에서 읽은 웨이포인트를 퍼블리시
+        PublishWaypoints(waypoints_1_);
+        PublishWaypoints(waypoints_2_);
+        PublishWaypoints(waypoints_3_);
+
+        PublishMarker(waypoints_1_);
+        PublishMarker(waypoints_2_);
+        PublishMarker(waypoints_3_);
+    }
+
     void PublishWaypoints(path waypoints) {
         for (const auto& waypoint : waypoints) {
             geometry_msgs::PoseStamped pose_stamped;
@@ -93,16 +86,17 @@ public:
 
             // PoseStamped 퍼블리시
             waypoint_pub_.publish(pose_stamped);
+
         }
     }
-    void publishMarker(path waypoints) {
 
+    void PublishMarker(path waypoints) {
         visualization_msgs::Marker marker;
-        marker.header.frame_id = "map"; // RViz에서 사용할 프레임
+        marker.header.frame_id = "map";
         marker.header.stamp = ros::Time::now();
         marker.ns = "waypoints";
         marker.action = visualization_msgs::Marker::ADD;
-        marker.type = visualization_msgs::Marker::SPHERE_LIST;
+        marker.type = visualization_msgs::Marker::SPHERE;
         marker.scale.x = 0.1;
         marker.scale.y = 0.1;
         marker.scale.z = 0.1;
@@ -131,18 +125,30 @@ public:
         
         delivery_pickup_client_.call(deli_srv);
         
-        // ros::Rate loop_rate(0.5);
-        // int cnt = 0;
+        ros::Rate loop_rate(0.5);
 
-        // while (!deli_srv.response.response.result && ros::ok() && cnt < 5){
-        //     std::cout << "state node : Failed to delivery. Retrying..." << std::endl;
-        //     delivery_pickup_client_.call(deli_srv);
-        //     loop_rate.sleep();
-        //     ros::spinOnce();
-        //     cnt ++;
-        // }
+        int cnt = 0;
+
+        while (!deli_srv.response.response.result && ros::ok() && cnt < 5){
+            std::cout << "state node : Failed to delivery. Retrying..." << std::endl;
+            delivery_pickup_client_.call(deli_srv);
+            loop_rate.sleep();
+            ros::spinOnce();
+            cnt ++;
+        }
 
         return deli_srv.response.response.result;
+        
+        // morai_msgs::DillyCmd srv;
+        // srv.isPickup = false;  // 또는 false
+        // srv.deliveryItemIndex = item_index;  // 원하는 인덱스
+
+        // // 서비스 호출
+        // if (delivery_pickup_client_.call(srv)) {
+        //     ROS_INFO("Result: %s", srv.response.result ? "true" : "false");
+        // } else {
+        //     ROS_ERROR("Failed to call service dilly_cmd_service");
+        // }
     } 
 
     bool pickup(int item_index){
@@ -153,12 +159,69 @@ public:
 
         delivery_pickup_client_.call(pick_srv);
 
+        ros::Rate loop_rate(0.5);
+
+        int cnt = 0;
+
+        while (!pick_srv.response.response.result && ros::ok() && cnt < 5){
+            std::cout << "state node : Failed to pick up. Retrying..." << std::endl;
+            delivery_pickup_client_.call(pick_srv);
+            loop_rate.sleep();
+            ros::spinOnce();
+            cnt ++;
+        }
+
         return pick_srv.response.response.result;
+        
+        // morai_msgs::DillyCmd srv;
+        // srv.isPickup = true;  // 또는 false
+        // srv.deliveryItemIndex = item_index;  // 원하는 인덱스
+
+        // // 서비스 호출
+        // if (delivery_pickup_client_.call(srv)) {
+        //     ROS_INFO("Result: %s", srv.response.result ? "true" : "false");
+        // } else {
+        //     ROS_ERROR("Failed to call service dilly_cmd_service");
+        // }
+
     }
 
-    void loadWaypoints(std::string waypoint_file_, path &waypoints_) {
+    // 여기가 메인 state 함수임!!
+    void state() {
+        ros::Rate rate(100);  // 0.01 Hz
+        while (ros::ok()) {
 
-        wpt_init_flag = false;
+            ////// 여기다 실행할 함수 //////
+            ROS_INFO("closest_index: %d", closest_index_);
+
+            pub_waypoints();
+            rate.sleep();  // 지정된 주기로 대기
+        }
+    }
+    
+private:
+    ros::NodeHandle nh_;
+    ros::Subscriber current_pose_sub_;
+    ros::Publisher waypoint_pub_; // PoseStamped 퍼블리셔
+    ros::Publisher waypoint_marker_pub_;
+    ros::ServiceClient delivery_pickup_client_;
+
+    std::string waypoint_file_;  // CSV 파일 경로를 저장할 변수
+    path waypoints_1_;
+    path waypoints_2_;
+    path waypoints_3_;
+
+    std::string waypoint_file_1_;
+    std::string waypoint_file_2_;
+    std::string waypoint_file_3_;
+
+    int closest_index_ = 0;
+    double cross_track_error = 10000000; 
+
+    bool wpt_init_flag = false;
+
+    void loadWaypoints(std::string waypoint_file_, path &waypoints_) {
+        
         int cnt = 0;
 
         std::ifstream file(waypoint_file_);
@@ -364,8 +427,8 @@ public:
             set_target_point(0,1,true);
 
             collision_to_person(10);
-            PublishWaypoints(waypoints_);
-            publishMarker(waypoints_);
+
+            publishWaypoints(waypoints_);
             
             rate.sleep();  // 지정된 주기로 대기
         }
@@ -378,8 +441,8 @@ private:
     actionlib::SimpleActionClient<morai_woowa::Person_Collision_ActAction> person_collision_ac_;
 
     ros::Subscriber current_pose_sub_;
-    ros::Publisher waypoint_pub_; // 
     ros::Publisher waypoint_marker_pub_;
+
     ros::ServiceClient delivery_pickup_client_;
 
     bool is_planning_action_finished_;
@@ -409,4 +472,4 @@ int main(int argc, char** argv) {
     thread.join();  // 스레드가 종료될 때까지 대기
 
     return 0;
-}
+}*/

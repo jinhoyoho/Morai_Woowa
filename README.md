@@ -37,8 +37,8 @@ roslaunch rosbridge_server rosbridge_websocket.launch - rosbridge 실행
 
 # Topics
 name : /current_pose<br/>
-type : geomtry_msgs.Pose2D<br/>
-설명 : utm_k좌표계 기준 robot의 x,y,yaw<br/> 
+type : geomtry_msgs.PoseStamped<br/>
+설명 : utm_k좌표계 기준 robot의 x,y,orienttation(quaternion)<br/> 
 <br/>
 name : /lidar_pre<br/>
 type : sensor_msgs/PointCloud2<br/>
