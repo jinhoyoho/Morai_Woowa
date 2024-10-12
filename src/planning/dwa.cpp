@@ -79,10 +79,21 @@ void obstacle_callback(const sensor_msgs::PointCloud2::ConstPtr& msg){
 void gpath_callback(const nav_msgs::Path::ConstPtr& msg) {
     global_path_ptr->clear();
     global_path_ptr->reserve(msg->poses.size());
+    auto flag = false;
     for (const auto& pose_stamped : msg->poses) {
-        global_path_ptr->push_back({pose_stamped.pose.position.x, pose_stamped.pose.position.y, 0});
+        if(calculateDistance({pose_stamped.pose.position.x, pose_stamped.pose.position.y, 0}, {pose_ptr->at(0), pose_ptr->at(1), 0}) < 0.5){
+            flag = true;
+        }
+        if(flag == true){
+            global_path_ptr->push_back({pose_stamped.pose.position.x, pose_stamped.pose.position.y, 0});
+        }
+        
     }
-    global_path_ptr->resize(predict_time * 10);
+
+    if(global_path_ptr->size() > predict_time * 10){
+        global_path_ptr->resize(predict_time * 10);
+    }
+    
 }
 
 void pose_callback(const geometry_msgs::PoseStamped::ConstPtr& msg){
@@ -150,7 +161,7 @@ void vote_president_path(std::shared_ptr<std::vector<std::vector<std::vector<dou
     for(int i =0; i < num_of_path + 1; i++){
         double current_cost = 0.0;
         auto current_candidate = candidate_path_ptr->at(i);
-        for(int j = 0; j < predict_time * 10; j++){
+        for(int j = 0; j < current_candidate.size(); j++){
             // obstacle cost
             for( int k = 0 ; k < cloud_ptr->size(); k++){
                 obstacle_ptr->at(k).resize(3);
