@@ -1,10 +1,11 @@
 #include "Morai_Woowa/calibration.h"
 
-calibration::calibration()
+calibration::calibration(ros::NodeHandle& nh):PCAserver_(nh, "person_collision_action_server", boost::bind(&calibration::execute, this, _1) ,false)
 {
-    ros::NodeHandle nh;
     lidar_sub = nh.subscribe("lidar_pre", 1, &calibration::lidar_callBack, this);
     object_sub = nh.subscribe("person", 1, &calibration::object_callBack, this);
+    min_distance = 987654321.0;    // 최소 거리 갱신
+
     double min_x = 0;   // 최소 좌표
     double min_y = 0;
     double min_z = 0;
@@ -49,6 +50,21 @@ void calibration::object_callBack(const morai_woowa::obj_info::ConstPtr& msg)
     if(cv::waitKey(10) == 27) exit(-1);
 }
 
+void calibration::execute(const morai_woowa::Person_Collision_ActGoalConstPtr& goal)
+{
+    ROS_INFO("Execute action: Person Collision Action!");
+
+    // 찾는 범위 보다 크다면 false (987654321 포함) -> 오작동 같은 예외처리 필요!
+    if(goal->range < min_distance)
+    {   
+        ROS_INFO("Action Fail: Do not meet range");
+        // 모두 실패!
+        feedback_.is_target = false;
+        PCAserver_.publishFeedback(feedback_);
+    }
+    // else if(min_distance < 0)
+
+}
 
 cv::Mat_<double> calibration::computeRotationMatrix(double roll, double pitch, double yaw) {
     // 각도를 라디안으로 변환
@@ -168,7 +184,7 @@ void calibration::projection(cv::Mat frame)
                 averagePoints[classId].push_back(average);  // 평균 좌표 저장
             }
 
-            double min_distance = 987654321.0;    // 최소 거리
+            min_distance = 987654321.0;    // 최소 거리 갱신
             
 
             // 평균 거리 계산

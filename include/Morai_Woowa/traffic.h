@@ -25,7 +25,7 @@ class Traffic
         ros::ServiceServer traffic_server;
 
     public:
-        Traffic(); // 생성자
+        Traffic(ros::NodeHandle& nh); // 생성자
 
         void object_callBack(const morai_woowa::obj_info::ConstPtr& msg);
         void image_callBack(const sensor_msgs::ImageConstPtr& msg);

@@ -28,7 +28,7 @@
 class LiDAR_pre
 {
 public:
-    LiDAR_pre(); // 생성자
+    LiDAR_pre(ros::NodeHandle& nh); // 생성자
 
     // 라이다 처리 함수
     void cloud_callBack(const sensor_msgs::PointCloud2& msg);

@@ -3,13 +3,14 @@
 int main(int argc, char** argv)
 {
     ros::init(argc, argv, "Sensor_main");
+    ros::NodeHandle nh;
 
     ROS_INFO("Start Calibration, LiDAR_pre, Traffic...");
 
-    LiDAR_pre lp;   // LiDAR_pre.cpp
+    LiDAR_pre lp(nh);   // LiDAR_pre.cpp
 
-    calibration cl; // calibration.cpp
-    Traffic tf;     // traffic.cpp
+    calibration cl(nh); // calibration.cpp
+    Traffic tf(nh);     // traffic.cpp
 
     ros::spin();
 

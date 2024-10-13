@@ -1,12 +1,11 @@
 #include "Morai_Woowa/traffic.h"
 
-Traffic::Traffic()
+Traffic::Traffic(ros::NodeHandle& nh)
 {
     flag = false; // flag false로 생성
     redFlag = false;    // 빨간 신호등을 보았는가요?
     crosswalk = false; // request를 받았나요?
     count = 0;
-    ros::NodeHandle nh;
     image_sub = nh.subscribe("traffic_image", 1, &Traffic::image_callBack, this);
     traffic_server = nh.advertiseService("traffic_srv", &Traffic::go_crosswalk, this);
     std::cout << "Traffic on" << "\n";

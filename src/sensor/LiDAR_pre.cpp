@@ -3,9 +3,8 @@
 //lidar 각도 pitch 10도
 
 // 생성자
-LiDAR_pre::LiDAR_pre()
+LiDAR_pre::LiDAR_pre(ros::NodeHandle& nh)
 {
-    ros::NodeHandle nh;
     point_sub_ = nh.subscribe("/velodyne_points", 1, &LiDAR_pre::cloud_callBack, this);
     pose_sub_ = nh.subscribe("/current_pose", 1, &LiDAR_pre::pose_callBack, this);
 
