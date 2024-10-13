@@ -36,6 +36,7 @@ add_message_files(
 add_service_files(
   FILES
   traffic_srv.srv
+  StopTrackingSrv.srv
 )
 
 add_action_files(
