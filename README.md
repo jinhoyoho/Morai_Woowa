@@ -40,6 +40,10 @@ name : /current_pose<br/>
 type : geomtry_msgs.PoseStamped<br/>
 설명 : utm_k좌표계 기준 robot의 x,y,orienttation(quaternion)<br/> 
 <br/>
+name : /dilly_velocity<br/>
+type : geomtry_msgs.Twist<br/>
+설명 : 로봇의 선형속도와 각속도<br/> 
+<br/>
 name : /lidar_pre<br/>
 type : sensor_msgs/PointCloud2<br/>
 설명 : roi, voxel, ransac 전처리된 라이다값<br/>

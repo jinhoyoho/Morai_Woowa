@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 
 import rospy
-from geometry_msgs.msg import PoseStamped
+from geometry_msgs.msg import PoseStamped, Twist
 from morai_msgs.msg import GPSMessage
 from sensor_msgs.msg import Imu
 from pyproj import Proj
@@ -17,6 +17,8 @@ class GPSToUTM:
         self.gps_sub = rospy.Subscriber('/gps', GPSMessage, self.gps_callback)
         self.imu_sub = rospy.Subscriber('/imu', Imu, self.imu_callback)
 
+        self.odom_pub = rospy.Publisher('/dilly_velocity', Twist, queue_size=10)
+
         # Proj 초기화
         self.proj_UTM = Proj(proj='utm', zone=52, ellps = 'WGS84', preserve_units=False)
         
@@ -25,6 +27,16 @@ class GPSToUTM:
         
         # 현재 쿼터니언 초기화
         self.current_orientation = [0.0, 0.0, 0.0, 1.0]  # 초기 쿼터니언 (0, 0, 0, 1)
+
+        self.linear_vel = 0
+        self.angular_vel = 0
+
+        self.vel_calc_flag = True
+        self.prev_x = 0
+        self.prev_y = 0
+        self.prev_time_stamp = 0
+
+
 
     def lat_lon_to_utmk(self, lon, lat, x_off, y_off):
         # 위도, 경도를 UTM-K 좌표로 변환
@@ -38,6 +50,16 @@ class GPSToUTM:
         y_offset = msg.northOffset
 
         x, y = self.lat_lon_to_utmk(longitude, latitude, x_offset, y_offset)
+        time_stamp = msg.header.stamp.secs + msg.header.stamp.nsecs/1000000000
+
+        if(self.vel_calc_flag):
+            self.prev_x = x
+            self.prev_y = y
+            self.prev_time_stamp = time_stamp
+            self.vel_calc_flag = False
+            return
+
+        self.calc_linear_vel(x, y, time_stamp)
 
         if x is not None and y is not None:
             pose_stamped = PoseStamped()
@@ -61,6 +83,7 @@ class GPSToUTM:
 
             # TF 발행
             self.publish_tf(x, y, self.current_orientation)
+            self.publish_vel()
 
         else:
             rospy.logwarn("Failed to convert lat/lon to UTM.")
@@ -71,6 +94,13 @@ class GPSToUTM:
 
         # TF 발행
         self.br.sendTransform((x, y, 0), orientation, current_time, "robot", "map")
+        
+    def publish_vel(self):
+        velocity = Twist()
+        velocity.angular.z = self.angular_vel
+        velocity.linear.x = self.linear_vel
+
+        self.odom_pub.publish(velocity)
 
     def imu_callback(self, msg):
         # IMU 데이터에서 쿼터니언 업데이트
@@ -80,6 +110,23 @@ class GPSToUTM:
             msg.orientation.z,
             msg.orientation.w
         ]
+
+        self.angular_vel = msg.angular_velocity.z
+
+    def calc_linear_vel(self, x, y, time_stamp):
+        
+        dt = time_stamp - self.prev_time_stamp
+        dis = math.sqrt((x - self.prev_x)**2+(y - self.prev_y)**2)
+        linear_vel = dis/dt
+
+        print(dt)
+
+        if dt > 0.1:
+            self.prev_x = x
+            self.prev_y = y
+            self.prev_time_stamp = time_stamp
+
+            self.linear_vel = linear_vel 
 
 if __name__ == '__main__':
     gps_to_utm = GPSToUTM()
