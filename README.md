@@ -63,3 +63,19 @@ type : sensor_msgs/PointCloud<br/>
 name : /president_path<br/>
 type : sensor_msgs/PointCloud<br/>
 설명 : dwa로 결정한 최적 경로. local path가 된다.<br/>
+
+# Service
+name : /StopTracking<br/>
+type : morai_woowa/StopTrackingSrv<br/>
+설명 : planning 일시정지 or 재게 기능 <br/> 
+<br/>
+
+# Action
+name : /planning_tracking_action<br/>
+type : morai_woowa/Planning_Tracking_ActAction<br/>
+설명 : 클라이언트에게 경로 이름을 받아서 경로 트래킹<br/> 
+<br/>
+name : /person_collision_action<br/>
+type : morai_woowa/Person_Collision_ActAction<br/>
+설명 : 정적인 보행자를 찾아서 충돌<br/>
+<br/>
