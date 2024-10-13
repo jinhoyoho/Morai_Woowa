@@ -93,7 +93,7 @@ public:
         }
     }
 
-
+    // 현재 경로 pub
     void PublishWaypoints(path waypoints_) {
         for (const auto& waypoint : waypoints_) {
             geometry_msgs::PoseStamped pose_stamped;
@@ -117,6 +117,7 @@ public:
         }
     }
 
+    // 배달 함수
     bool delivery(int item_index){
         
         morai_msgs::WoowaDillyEventCmdSrv deli_srv;
@@ -139,6 +140,7 @@ public:
         return deli_srv.response.response.result;
     } 
 
+    // 픽업 함수
     bool pickup(int item_index){
 
         morai_msgs::WoowaDillyEventCmdSrv pick_srv;
@@ -150,6 +152,7 @@ public:
         return pick_srv.response.response.result;
     }
 
+    // 파일이름으로 Waypoints load
     void loadWaypoints(std::string waypoint_file, path &waypoints) {
 
         wpt_init_flag_ = false;
@@ -192,6 +195,7 @@ public:
         }
     }
 
+    // 현재위치에서 가장 가까운 경로 idx 
     int findClosestWaypoint(float x, float y, int previous_index, path waypoints) {
 
         // 처음엔 모든 wpt를 돌면서 위치 체크
@@ -292,7 +296,9 @@ public:
         } 
     }
 
-    int request_planning_point(int a, int b, bool indoor){
+    // 도착 실패시 0 반환
+    // 도착 성공시 arrival_point 반환
+    int request_planning(int starting_point, int arrival_point, bool indoor){
 
         std::ostringstream oss1;
         std::ostringstream oss2;
@@ -305,23 +311,28 @@ public:
         else
             out_or_in = "outdoor";
 
-        oss1 << out_or_in << "_" << a << "_" << b << ".csv";
+        //파일 문자열 조합
+        oss1 << out_or_in << "_" << starting_point << "_" << arrival_point << ".csv";
         filename = oss1.str();
 
+        //파일 존재하면 그 경로로 reverse 모드 안하고 request
         std::ifstream file(filename);
         if (file.is_open()) {
             planning_goal.path = filename;  
             planning_goal.reverse = false;  
         }
+        //파일 존재하지 않으면 경로 이름 뒤집고
         else {
-            oss2 << out_or_in << "_" << b << "_" << a << ".csv";
+            oss2 << out_or_in << "_" << arrival_point << "_" << starting_point << ".csv";
             filename = oss2.str();
             std::ifstream file(filename);
 
+            // 뒤집었을 때 경로 존재하면 이 경로로 reverse모드로 request
             if (file.is_open()) {
                 planning_goal.path = filename;
                 planning_goal.reverse = true;  
             }
+            // 이래도 파일 안열리면 걍 없는 경로임 오류 생성
             else {
                 ROS_WARN("Unable to open waypoint file: %s", filename.c_str());
                 return false;
@@ -329,11 +340,13 @@ public:
         }
         loadWaypoints(filename, waypoints_);
 
+        // 경로 트래킹 요청
         planning_tracking_ac_.sendGoal(planning_goal,
                     boost::bind(&StateNode::PlanningActionDoneCb, this, boost::placeholders::_1, boost::placeholders::_2),
                     boost::bind(&StateNode::PlanningActionActiveCb, this),
                     boost::bind(&StateNode::PlanningActionFeedbackCb, this, boost::placeholders::_1));
 
+        // 관련 멤버변수 초기화
         is_planning_action_finished_ = false;
         is_reach_target_point_ = false;
         progress_percentage_ = 0;
@@ -346,12 +359,15 @@ public:
         }
 
         if(is_reach_target_point_)
-            return b; 
+            return arrival_point; 
         else
             return 0;
     }
 
-    int request_planning_with_collision(int a, int b, bool indoor, float range){
+    // 도착 실패시 0 반환
+    // 충돌 성공시 0 반환
+    // 도착 성공시 arrival_point 반환
+    int request_planning_with_collision(int starting_point, int arrival_point, bool indoor, float range){
 
         std::ostringstream oss1;
         std::ostringstream oss2;
@@ -363,24 +379,30 @@ public:
             out_or_in = "indoor";
         else
             out_or_in = "outdoor";
-
-        oss1 << out_or_in << "_" << a << "_" << b << ".csv";
+        
+        //파일 문자열 조합
+        oss1 << out_or_in << "_" << starting_point << "_" << arrival_point << ".csv";
         filename = oss1.str();
 
         std::ifstream file(filename);
+
+        //파일 존재하면 그 경로로 reverse 모드 안하고 request
         if (file.is_open()) {
             planning_goal.path = filename;  
             planning_goal.reverse = false;  
         }
+        //파일 존재하지 않으면 경로 이름 뒤집고
         else {
-            oss2 << out_or_in << "_" << b << "_" << a << ".csv";
+            oss2 << out_or_in << "_" << arrival_point << "_" << starting_point << ".csv";
             filename = oss2.str();
             std::ifstream file(filename);
 
+            // 뒤집었을 때 경로 존재하면 이 경로로 reverse모드로 request
             if (file.is_open()) {
                 planning_goal.path = filename;
                 planning_goal.reverse = true;  
             }
+            // 이래도 파일 안열리면 걍 없는 경로임 오류 생성
             else {
                 ROS_WARN("Unable to open waypoint file: %s", filename.c_str());
                 return false;
@@ -388,17 +410,18 @@ public:
         }
         loadWaypoints(filename, waypoints_);
 
-        //
+        // 경로 트래킹 요청
         planning_tracking_ac_.sendGoal(planning_goal,
                     boost::bind(&StateNode::PlanningActionDoneCb, this, boost::placeholders::_1, boost::placeholders::_2),
                     boost::bind(&StateNode::PlanningActionActiveCb, this),
                     boost::bind(&StateNode::PlanningActionFeedbackCb, this, boost::placeholders::_1));
 
+        // 관련 멤버변수 초기화
         is_planning_action_finished_ = false;
         is_reach_target_point_ = false;
-        progress_percentage_ = 0;
+        progress_percentage_ = 0; 
 
-        //
+        // 사람 충돌 요청
         morai_woowa::Person_Collision_ActGoal collision_goal;
         collision_goal.range = range; 
 
@@ -407,17 +430,19 @@ public:
                     boost::bind(&StateNode::PersonCollisionActionActiveCb, this),
                     boost::bind(&StateNode::PersonCollisionActionFeedbackCb, this, boost::placeholders::_1));
 
-
+        // 관련 멤버변수 초기화
         is_collision_action_finished_ = false;
         is_success_collision_ = false;
         is_found_collision_target_ = false;
 
+        // 한번 사람충돌 실패하면 걍 원래경로 주행하도록하는 flag
         bool tracking_stop_flag = false;
 
         ros::Rate loop_rate(0.5);
 
         while (!is_planning_action_finished_ && ros::ok()){
             
+            // 만약 전체 경로의 25프로도 덜왔을 때 충돌타겟을 발견하면
             if(is_found_collision_target_ && progress_percentage_ < 0.25 && !tracking_stop_flag){
                 
                 tracking_stop_flag = true; 
@@ -427,12 +452,14 @@ public:
                 stop_srv.request.stop = true;
                 stop_tracking_client_.call(stop_srv);
 
-                //충돌에 집중
+                // 충돌에 집중
                 while (!is_collision_action_finished_ && ros::ok()){
                     loop_rate.sleep();
                     ros::spinOnce();
                 }
                 
+                // while문 탈출시는 충돌액션이 끝난거임
+
                 // 충돌 성공시
                 if(is_success_collision_){
                     planning_tracking_ac_.cancelGoal();
@@ -452,9 +479,9 @@ public:
         person_collision_ac_.cancelGoal();
 
         if(is_reach_target_point_)
-            return b; 
+            return arrival_point; 
         else
-            return a;
+            return 0;
     }
 
     bool request_collision_to_person(float range){
@@ -488,19 +515,19 @@ public:
 
         float dis = 10000;
         
-        if (type == "teloport_indoor"){
+        if (type == "teloport_indoor"){ // 실내 펠레포트 지점
             Spot teloport_spot_indoor(3.00, -42.00);
             dis = calculateDistance(current_x_, current_y_, teloport_spot_indoor.x, teloport_spot_indoor.y);
         }
-        else if (type == "teloport_outdoor"){
+        else if (type == "teloport_outdoor"){ // 야외 텔레포트 지점
             Spot teloport_spot_outdoor(430.00, -140.00);
             dis = calculateDistance(current_x_, current_y_, teloport_spot_outdoor.x, teloport_spot_outdoor.y);        
         }
-        else if (type == "respawn_indoor"){
+        else if (type == "respawn_indoor"){ // 실내 리스폰 지점
             Spot respawn_spot_indoor(430.00, -140.00);
             dis = calculateDistance(current_x_, current_y_, respawn_spot_indoor.x, respawn_spot_indoor.y);        
         }
-        else if (type == "respawn_outdoor"){
+        else if (type == "respawn_outdoor"){ // 야외 리스폰 지점
             Spot respawn_spot_outdoor(430.00, -140.00);
             dis = calculateDistance(current_x_, current_y_, respawn_spot_outdoor.x, respawn_spot_outdoor.y);        
         }
@@ -509,7 +536,7 @@ public:
             return false;
         }    
 
-        if (dis < 1){
+        if (dis < 0.1){
             ROS_WARN("teleport success: %s", type.c_str());
             return true;
         }
@@ -524,15 +551,28 @@ public:
         ros::Rate rate(20);  // 0.01 Hz
         while (ros::ok()) {
 
-            request_planning_point(0,1,true);
+            int starting_point = 0;
+            int arrivel_point = 1;
+            bool is_indoor = true;
+            request_planning(starting_point, arrivel_point, is_indoor);
 
-            request_collision_to_person(10);
+            int starting_point = 0;
+            int arrivel_point = 1;
+            bool is_indoor = true;
+            float detect_range = 10.0;
+            request_planning_with_collision(starting_point, arrivel_point, is_indoor, detect_range);            
 
-            check_teleport_success("respawn_indoor");
+            float detect_range = 10.0;
+            request_collision_to_person(detect_range);
 
-            delivery(1);
+            string teleport_point = "respawn_indoor";
+            check_teleport_success(teleport_point);
 
-            pickup(1);
+            int item_index = 1;
+            delivery(item_index);
+
+            int item_index = 1;
+            pickup(item_index);
 
             PublishWaypoints(waypoints_);
             
