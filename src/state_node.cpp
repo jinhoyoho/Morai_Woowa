@@ -2,8 +2,10 @@
 #include <ros/package.h>  
 #include <geometry_msgs/PoseStamped.h>
 #include <visualization_msgs/Marker.h>
-#include "morai_msgs/WoowaDillyEventCmdSrv.h"
 #include <tf/transform_datatypes.h>
+
+#include "morai_msgs/WoowaDillyEventCmdSrv.h"
+#include "morai_msgs/WoowaDillyStatus.h"
 
 #include <actionlib/client/simple_action_client.h>
 #include "morai_woowa/Planning_Tracking_ActAction.h"
@@ -39,12 +41,12 @@ class StateNode{
 
 public:
     StateNode(): 
-    planning_tracking_ac_(nh_, "planning_tracking_action", true),
-    person_collision_ac_(nh_, "person_collision_action", true)
+    planning_tracking_ac_(nh_, "/planning_tracking_action", true),
+    person_collision_ac_(nh_, "/person_collision_action", true)
     {
+        dilly_item_status_sub_ = nh_.subscribe("/WoowaDillyStatus", 10, &StateNode::itemstatusCallback, this);
         current_pose_sub_ = nh_.subscribe("/current_pose", 10, &StateNode::currentPoseCallback, this);
-        waypoint_pub_ = nh_.advertise<geometry_msgs::PoseStamped>("/waypoints", 10);  // PoseStamped 퍼블리셔
-        waypoint_marker_pub_ = nh_.advertise<visualization_msgs::Marker>("/globalpath", 10, this);
+        waypoint_pub_ = nh_.advertise<geometry_msgs::PoseStamped>("/waypoints", 10);  
 
         delivery_pickup_client_ = nh_.serviceClient<morai_msgs::WoowaDillyEventCmdSrv>("/WoowaDillyEventCmd");
         stop_tracking_client_ = nh_.serviceClient<morai_woowa::StopTrackingSrv>("/StopTracking");
@@ -76,6 +78,18 @@ public:
         current_x_ = 0;
         current_y_ = 0;
 
+        int dilly_item_status_cnt_ = 0;
+
+    }
+
+    void itemstatusCallback(const morai_msgs::WoowaDillyStatus::ConstPtr& msg){
+        dilly_item_status_list_ = msg->deliveryItem;
+        int cnt = 0;
+        //dilly_item_status_cnt_ = dilly_item_status_list_.size();
+        for(auto i : dilly_item_status_list_){
+            cnt++;
+        }
+        dilly_item_status_cnt_ = cnt;
     }
 
     void currentPoseCallback(const geometry_msgs::PoseStamped::ConstPtr& msg) {
@@ -551,28 +565,28 @@ public:
         ros::Rate rate(20);  // 0.01 Hz
         while (ros::ok()) {
 
-            int starting_point = 0;
-            int arrivel_point = 1;
-            bool is_indoor = true;
-            request_planning(starting_point, arrivel_point, is_indoor);
+            int starting_point1 = 0;
+            int arrivel_point1 = 1;
+            bool is_indoor1 = true;
+            request_planning(starting_point1, arrivel_point1, is_indoor1);
 
-            int starting_point = 0;
-            int arrivel_point = 1;
-            bool is_indoor = true;
-            float detect_range = 10.0;
-            request_planning_with_collision(starting_point, arrivel_point, is_indoor, detect_range);            
+            int starting_point2 = 0;
+            int arrivel_point2 = 1;
+            bool is_indoor2 = true;
+            float detect_range1 = 10.0;
+            request_planning_with_collision(starting_point2, arrivel_point2, is_indoor2, detect_range1);            
 
-            float detect_range = 10.0;
-            request_collision_to_person(detect_range);
+            float detect_range2 = 10.0;
+            request_collision_to_person(detect_range2);
 
-            string teleport_point = "respawn_indoor";
+            std::string teleport_point = "respawn_indoor";
             check_teleport_success(teleport_point);
 
-            int item_index = 1;
-            delivery(item_index);
+            int item_index1 = 1;
+            delivery(item_index1);
 
-            int item_index = 1;
-            pickup(item_index);
+            int item_index2 = 1;
+            pickup(item_index2);
 
             PublishWaypoints(waypoints_);
             
@@ -587,8 +601,8 @@ private:
     actionlib::SimpleActionClient<morai_woowa::Person_Collision_ActAction> person_collision_ac_;
 
     ros::Subscriber current_pose_sub_;
+    ros::Subscriber dilly_item_status_sub_;
     ros::Publisher waypoint_pub_; 
-    ros::Publisher waypoint_marker_pub_;
 
     ros::ServiceClient delivery_pickup_client_;
     ros::ServiceClient stop_tracking_client_;
@@ -609,6 +623,10 @@ private:
     float current_y_;
 
     bool wpt_init_flag_;
+
+    // 현재 적재중인 item list 및 개수
+    std::vector<int> dilly_item_status_list_; 
+    int dilly_item_status_cnt_;
     
 };
 
