@@ -1,6 +1,6 @@
 #include "Morai_Woowa/calibration.h"
 
-calibration::calibration(ros::NodeHandle& nh):PCAserver_(nh, "person_collision_action_server", boost::bind(&calibration::execute, this, _1) ,false)
+calibration::calibration(ros::NodeHandle& nh):PCAserver_(nh, "/person_collision_action", boost::bind(&calibration::execute, this, _1) ,false)
 {
     lidar_sub = nh.subscribe("lidar_pre", 1, &calibration::lidar_callBack, this);
     object_sub = nh.subscribe("person", 1, &calibration::object_callBack, this);
@@ -145,7 +145,6 @@ void calibration::projection(cv::Mat frame)
                 {
                     // 점 찍기 (빨간색)
                     cv::circle(frame, cv::Point(x, y), 3, cv::Scalar(0, 0, 255), -1);
-
 
                     // 해당하는 픽셀 좌표의 LiDAR 거리 계산
                     const auto& lidarPoint = lidar_points[i]; // 해당하는 Lidar Point

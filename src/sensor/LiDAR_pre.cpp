@@ -111,12 +111,12 @@ void LiDAR_pre::roi()
     // Apply Passthrough Filter
     pass.setInputCloud(raw_data_p_);
     pass.setFilterFieldName("z");
-    pass.setFilterLimits(-0.7, 30);   // 상하거리
+    pass.setFilterLimits(-0.7, 50);   // 상하거리
     pass.filter(*raw_data_p_);
 
     pass.setInputCloud(raw_data_p_);
     pass.setFilterFieldName("x");
-    pass.setFilterLimits(0, 10);  // 앞뒤거리
+    pass.setFilterLimits(0, 30);  // 앞뒤거리
     pass.filter(*raw_data_p_);
 
     pass.setInputCloud(raw_data_p_);
