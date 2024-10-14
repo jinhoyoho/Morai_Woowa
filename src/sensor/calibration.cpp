@@ -105,7 +105,7 @@ void calibration::do_cali()
                                      0, 0, 1,
                                      -1, 0, 0);
 
-    rvec = this->computeRotationMatrix(-10, 0, 0) * rvec;
+    rvec = rvec * this->computeRotationMatrix(0, 0, 0);
 
 
     tvec = (cv::Mat_<double>(3, 1) << lidar_x - camera_x, lidar_y - camera_y, lidar_z - camera_z); 
@@ -129,7 +129,6 @@ void calibration::projection(cv::Mat frame)
             // 3D 포인트를 2D 이미지 평면으로 투영
             cv::projectPoints(lidar_points, rvec, tvec, cameraMatrix, distCoeffs, imagePoints);
             
-            std::unordered_map<int, std::vector<double>> classDistances; // 클래스별 거리 저장
             std::unordered_map<int, int> classCount; // 클래스별 점 수 저장
             std::map<int, std::vector<cv::Point3f>> classPoints;    // 클래스별 라이다 좌표 저장
 
@@ -144,17 +143,12 @@ void calibration::projection(cv::Mat frame)
                 if ((xmin <= x) && (x <= xmax) && (ymin <= y) && (y <= ymax))
                 {
                     // 점 찍기 (빨간색)
-                    cv::circle(frame, cv::Point(x, y), 3, cv::Scalar(0, 0, 255), -1);
+                    // cv::circle(frame, cv::Point(x, y), 3, cv::Scalar(0, 0, 255), -1);
 
                     // 해당하는 픽셀 좌표의 LiDAR 거리 계산
                     const auto& lidarPoint = lidar_points[i]; // 해당하는 Lidar Point
 
-                    double distance = std::sqrt(lidarPoint.x * lidarPoint.x + 
-                                                lidarPoint.y * lidarPoint.y +
-                                                lidarPoint.z * lidarPoint.z);
-
                     int classId = static_cast<int>(intensity[i]); // intensity를 클래스 ID로 변환
-                    classDistances[classId].push_back(distance);    // 거리 저장
                     classCount[classId]++;  // 개수 증가
                     classPoints[classId].push_back(lidarPoint); // 라이다 좌표 저장
                 }
@@ -162,61 +156,60 @@ void calibration::projection(cv::Mat frame)
 
             
             std::map<int, std::vector<cv::Point3f>> averagePoints;    // 클래스별 라이다 좌표 저장
+            int maxClass = -1; // 가장 많은 점을 가진 class
+            size_t maxSize = 0; // 최대 크기
+            
+            for(const auto& pair : classPoints)
+            {   
+                // 큰 사이즈가 나온다면
+                if(pair.second.size() > maxSize)
+                {
+                    maxClass = pair.first;          // 어떤 클래스인지 저장
+                    maxSize = pair.second.size();   // 크기 저장
+                }
+            }
 
-            // 클래스별 평균 계산 및 출력
-            for (const auto& entry : classPoints) {
-                int classId = entry.first;
-                const std::vector<cv::Point3f>& points = entry.second;
+        
+            std::vector<cv::Point2f> imageProjections; // 이미지에 투영시킬 좌표
+            if (maxClass != -1) // -1이 아닐때 실행
+            {
+                cv::projectPoints(classPoints[maxClass], rvec, tvec, cameraMatrix, distCoeffs, imageProjections);
 
+                for(size_t i=0; i < imageProjections.size(); i++)
+                {
+                    const auto& imageProjection = imageProjections[i];
+                    int x = static_cast<int>(imageProjection.x);
+                    int y = static_cast<int>(imageProjection.y);
+
+                    cv::circle(frame, cv::Point(x, y), 3, cv::Scalar(255, 0, 0), -1); // 점 찍기
+                }
+
+                
+                // Lidar 좌표 평균
+                const std::vector<cv::Point3f>& points = classPoints[maxClass];
                 cv::Point3f average = {0.0, 0.0, 0.0};
-                for (const auto& point : points) {
+                
+
+                for (const auto& point : points)
+                {
                     average.x += point.x;
                     average.y += point.y;
                     average.z += point.z;
                 }
 
-                if (!points.empty()) {
+                if(!points.empty())
+                {
                     average.x /= points.size();
                     average.y /= points.size();
                     average.z /= points.size();
                 }
-                averagePoints[classId].push_back(average);  // 평균 좌표 저장
-            }
 
-            min_distance = 987654321.0;    // 최소 거리 갱신
-            
+                min_distance = std::sqrt(average.x * average.x + 
+                                        average.y * average.y +
+                                        average.z * average.z);   // 최소 거리 갱신
 
-            // 평균 거리 계산
-            for (const auto& entry : classDistances) {
-                int classId = entry.first;
-                const std::vector<double>& distances = entry.second;
-
-                double sum = 0.0;
-                for (double dist : distances) {
-                    sum += dist;
-                }
-
-                double averageDistance = sum / classCount[classId];
-
-                if (min_distance > averageDistance) // 거리가 더 작다면
-                {
-                    min_distance = averageDistance; // 거리 갱신
-
-                    const std::vector<cv::Point3f>& averagePointPointer = averagePoints[classId];
-                    if(!averagePointPointer.empty())
-                    {
-                        min_x = averagePointPointer[0].x;   // 최소 거리 라이다 x 좌표
-                        min_y = averagePointPointer[0].y;   // 최소 거리 라이다 y 좌표
-                        min_z = averagePointPointer[0].z;   // 최소 거리 라이다 z 좌표
-                    }
-                }
-            }
-
-            // min_distance가 987654321 이 아닐때
-            if (min_distance != 987654321.0)
-            {
-                std::cout << "Distance: " << min_distance << "\n";
-                std::cout << "최소 라이다 좌표: " << min_x << " " << min_y << " " << min_z << "\n";
+                std::cout << "Average Distance: " << min_distance << "\n";
+                std::cout << "Average Coord: " << average.x << " " << average.y << " " << average.z << "\n";
             }
         }
     }
