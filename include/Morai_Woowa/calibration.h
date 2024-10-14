@@ -86,6 +86,10 @@ private:
 
     double min_distance;    // 최소 거리 갱신
 
+    // timeStamp 맞추기
+    ros::Time last_image_time;  // 마지막으로 받은 이미지 시간
+    ros::Time last_lidar_time;  // 마지막으로 받은 라이다 시간
+
 
 public:
     calibration(ros::NodeHandle& nh);  // 생성자
