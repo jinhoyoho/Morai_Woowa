@@ -560,6 +560,66 @@ public:
         }
     }
 
+    bool check_arrival_success(int point, bool indoor){
+
+        float dis = 10000;
+        Spot target_spot(-99999,-99999)
+        
+        if (indoor){ // 실내
+            if(point == 1){    
+                Spot target_spot(-42.4,  -135.0);
+            }
+            else if(point == 2){  
+                Spot target_spot(51.5,    -41.3);
+            }
+            else if(point == 3){
+                Spot target_spot(65.2,     44.1);
+            }
+            else if(point == 4){ 
+                Spot target_spot(-77.7,      7.7);
+            }
+            else if(point == 5){ 
+                Spot target_spot(30.7,   -41.1);
+            }
+            else{
+                ROS_WARN("arrival fail >> strange type : %d", point);
+                return false;
+            }  
+        }
+        else{
+            if(point == 1){    
+                Spot target_spot(393.9,-79.5);
+            }
+            else if(point == 2){  
+                Spot target_spot(263.4,-79.1);
+            }
+            else if(point == 3){
+                Spot target_spot(229.8,-129.1);
+            }
+            else if(point == 4){ 
+                Spot target_spot(334.9,-117.6);
+            }
+            else if(point == 5){ 
+                Spot target_spot(372.1,-116.3);
+            }
+            else{
+                ROS_WARN("arrival fail >> strange type : %d", point);
+                return false;
+            }    
+        }
+        
+        dis = calculateDistance(current_x_, current_y_, target_spot.x, target_spot.y);        
+
+        if (dis < 0.1){
+            ROS_WARN("arrival success: %d", point);
+            return true;
+        }
+        else{
+            ROS_WARN("arrival fail: %d", point);
+            return false;
+        }
+    }
+
     // 여기가 메인 state 함수임!!
     void state() {
         ros::Rate rate(20);  // 0.01 Hz
@@ -581,6 +641,10 @@ public:
 
             std::string teleport_point = "respawn_indoor";
             check_teleport_success(teleport_point);
+
+            int arrival_point = 3;
+            bool is_indoor = 3;
+            check_arrival_success(arrival_point, is_indoor);
 
             int item_index1 = 1;
             delivery(item_index1);
