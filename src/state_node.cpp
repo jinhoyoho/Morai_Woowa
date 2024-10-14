@@ -493,7 +493,7 @@ public:
         person_collision_ac_.cancelGoal();
 
         if(is_reach_target_point_)
-            return arrival_point; 
+            return arrival_point;
         else
             return 0;
     }
@@ -568,26 +568,37 @@ public:
             int starting_point1 = 0;
             int arrivel_point1 = 1;
             bool is_indoor1 = true;
+            // starting_point에서 arrival_point로 가라(실내/실외)
+            // return: (int) arrival point (1번~5번) 지점
+            // 실패하면 0 반환
             request_planning(starting_point1, arrivel_point1, is_indoor1);
 
             int starting_point2 = 0;
             int arrivel_point2 = 1;
             bool is_indoor2 = true;
             float detect_range1 = 10.0;
+            // 돌아가면서 박을 수 있으면 박자 -> 제어권 넘김
             request_planning_with_collision(starting_point2, arrivel_point2, is_indoor2, detect_range1);            
 
             float detect_range2 = 10.0;
+            // 사람에 부딪혀라 -> 안 쓸것같음
             request_collision_to_person(detect_range2);
 
             std::string teleport_point = "respawn_indoor";
+            // 실내 respawn 지점으로 이동했는지 안 했는지 -> 이중체크 용도
             check_teleport_success(teleport_point);
 
+            // 완전히 정지한 상태로 픽업 및 배달
+            // n번에서 픽업하면 '무조건' n번으로 배달
             int item_index1 = 1;
+            // delivery
             delivery(item_index1);
 
             int item_index2 = 1;
+            // pickup
             pickup(item_index2);
 
+            // request planning 문자열 조합, state에서 publish, 확인용
             PublishWaypoints(waypoints_);
             
             rate.sleep();  // 지정된 주기로 대기
