@@ -42,7 +42,7 @@ class StateNode{
 public:
     StateNode(): 
     planning_tracking_ac_(nh_, "/planning_tracking_action", true),
-    person_collision_ac_(nh_, "/person_collision_action", true)
+    person_collision_ac_(nh_, "/Sensor_main/person_collision_action", true)
     {
         dilly_item_status_sub_ = nh_.subscribe("/WoowaDillyStatus", 10, &StateNode::itemstatusCallback, this);
         current_pose_sub_ = nh_.subscribe("/current_pose", 10, &StateNode::currentPoseCallback, this);
