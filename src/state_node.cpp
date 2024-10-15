@@ -43,7 +43,7 @@ public:
     StateNode(): 
     nh_("~"),
     planning_tracking_ac_(nh_, "/planning_tracking_action", true),
-    person_collision_ac_(nh_, "/sensor_main_n0de/person_collision_action", true)
+    person_collision_ac_(nh_, "/person_collision_action", true)
     {
         dilly_item_status_sub_ = nh_.subscribe("/WoowaDillyStatus", 10, &StateNode::itemstatusCallback, this);
         current_pose_sub_ = nh_.subscribe("/current_pose", 10, &StateNode::currentPoseCallback, this);
@@ -566,7 +566,8 @@ public:
         float dis = 10000;
         Spot target_spot(-99999,-99999);
         
-        if (indoor){ // 실내
+        if(indoor)
+        { // 실내
             if(point == 1){    
                 target_spot.x = -42.4;
                 target_spot.y = -135.0;
@@ -592,7 +593,8 @@ public:
                 return false;
             }  
         }
-        else{
+        else
+        {
             if(point == 1){    
                 target_spot.x = 393.9;
                 target_spot.y = -79.5;
