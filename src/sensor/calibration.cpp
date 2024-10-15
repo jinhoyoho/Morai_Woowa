@@ -2,8 +2,11 @@
 
 calibration::calibration(ros::NodeHandle& nh):PCAserver_(nh, "/person_collision_action", boost::bind(&calibration::execute, this, _1) ,false)
 {
+    PCAserver_.start(); // 액션서버 시작
     lidar_sub = nh.subscribe("lidar_pre", 1, &calibration::lidar_callBack, this);
     object_sub = nh.subscribe("person", 1, &calibration::object_callBack, this);
+    gps_sub = nh.subscribe("gps", 1, &calibration::gps_callBack, this);
+    imu_sub = nh.subscribe("imu", 1, &calibration::imu_callBack, this);
     min_distance = 987654321.0;    // 최소 거리 갱신
 
     double min_x = 0;   // 최소 좌표
@@ -70,7 +73,16 @@ void calibration::execute(const morai_woowa::Person_Collision_ActGoalConstPtr& g
         PCAserver_.publishFeedback(feedback_);
     }
     // else if(min_distance < 0)
+}
 
+void calibration::gps_callBack(const morai_msgs::GPSMessage::ConstPtr& msg)
+{
+    last_gps_time = msg->header.stamp;
+}
+
+void calibration::imu_callBack(const sensor_msgs::Imu::ConstPtr& msg)
+{
+    last_imu_time = msg->header.stamp;
 }
 
 cv::Mat_<double> calibration::computeRotationMatrix(double roll, double pitch, double yaw) {
