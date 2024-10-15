@@ -73,33 +73,6 @@ void calibration::execute(const morai_woowa::Person_Collision_ActGoalConstPtr& g
     // else if(min_distance < 0)
 }
 
-void calibration::gps_callBack(const morai_msgs::GPSMessage::ConstPtr& msg)
-{
-    last_gps_time = msg->header.stamp;  // gps 시간 측정
-    if ((last_imu_time - last_gps_time).toSec() < 0.01)
-    {
-        double latitude = msg.latitude
-        double longitude = msg.longitude
-        double x_offset = msg.eastOffset
-        double y_offset = msg.northOffset
-    }
-}
-
-void calibration::imu_callBack(const sensor_msgs::Imu::ConstPtr& msg)
-{
-    last_imu_time = msg->header.stamp;  // imu 시간 측정
-    // 쿼터니언 가져오기
-    geometry_msgs::Quaternion orientation = msg->orientation;
-
-    // 쿼터니언에서 yaw 각도 계산
-    double yaw = atan2(2.0 * (orientation.w * orientation.z + orientation.x * orientation.y),
-                        1.0 - 2.0 * (orientation.y * orientation.y + orientation.z * orientation.z));
-
-    // 라디안을 도로 변환
-    heading = yaw * (180.0 / M_PI);
-
-    ROS_INFO("Heading (Yaw): %f degrees", heading);
-}
 
 cv::Mat_<double> calibration::computeRotationMatrix(double roll, double pitch, double yaw) {
     // 각도를 라디안으로 변환

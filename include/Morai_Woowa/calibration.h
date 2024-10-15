@@ -94,11 +94,6 @@ private:
     // timeStamp 맞추기
     ros::Time last_image_time;  // 마지막으로 받은 이미지 시간
     ros::Time last_lidar_time;  // 마지막으로 받은 라이다 시간
-    ros::Time last_imu_time;  // 마지막으로 받은 imu 시간
-    ros::Time last_gps_time;  // 마지막으로 받은 gps 시간
-
-    double heading; // dilly의 heading
-
 
 public:
     calibration(ros::NodeHandle& nh);  // 생성자
