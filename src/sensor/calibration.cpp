@@ -1,6 +1,6 @@
 #include "Morai_Woowa/calibration.h"
 
-calibration::calibration(ros::NodeHandle& nh):PCAserver_(nh, "/person_collision_action", boost::bind(&calibration::execute, this, _1) ,false)
+calibration::calibration(ros::NodeHandle& nh):PCAserver_(nh, "person_collision_action", boost::bind(&calibration::execute, this, _1) ,false)
 {
     lidar_sub = nh.subscribe("lidar_pre", 1, &calibration::lidar_callBack, this);
     object_sub = nh.subscribe("person", 1, &calibration::object_callBack, this);

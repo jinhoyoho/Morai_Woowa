@@ -41,8 +41,9 @@ class StateNode{
 
 public:
     StateNode(): 
+    nh_("~"),
     planning_tracking_ac_(nh_, "/planning_tracking_action", true),
-    person_collision_ac_(nh_, "/Sensor_main/person_collision_action", true)
+    person_collision_ac_(nh_, "/sensor_main_n0de/person_collision_action", true)
     {
         dilly_item_status_sub_ = nh_.subscribe("/WoowaDillyStatus", 10, &StateNode::itemstatusCallback, this);
         current_pose_sub_ = nh_.subscribe("/current_pose", 10, &StateNode::currentPoseCallback, this);
@@ -563,23 +564,28 @@ public:
     bool check_arrival_success(int point, bool indoor){
 
         float dis = 10000;
-        Spot target_spot(-99999,-99999)
+        Spot target_spot(-99999,-99999);
         
         if (indoor){ // 실내
             if(point == 1){    
-                Spot target_spot(-42.4,  -135.0);
+                target_spot.x = -42.4;
+                target_spot.y = -135.0;
             }
             else if(point == 2){  
-                Spot target_spot(51.5,    -41.3);
+                target_spot.x = 51.5;
+                target_spot.y = -41.3;
             }
             else if(point == 3){
-                Spot target_spot(65.2,     44.1);
+                target_spot.x = 65.2;
+                target_spot.y = 44.1;
             }
             else if(point == 4){ 
-                Spot target_spot(-77.7,      7.7);
+                target_spot.x = -77.7;
+                target_spot.y = 7.7;
             }
             else if(point == 5){ 
-                Spot target_spot(30.7,   -41.1);
+                target_spot.x = 30.7;
+                target_spot.y = -41.1;
             }
             else{
                 ROS_WARN("arrival fail >> strange type : %d", point);
@@ -588,19 +594,24 @@ public:
         }
         else{
             if(point == 1){    
-                Spot target_spot(393.9,-79.5);
+                target_spot.x = 393.9;
+                target_spot.y = -79.5;
             }
             else if(point == 2){  
-                Spot target_spot(263.4,-79.1);
+                target_spot.x = 263.4;
+                target_spot.y = -79.1;
             }
             else if(point == 3){
-                Spot target_spot(229.8,-129.1);
+                target_spot.x = 229.8;
+                target_spot.y = -129.1;
             }
             else if(point == 4){ 
-                Spot target_spot(334.9,-117.6);
+                target_spot.x = 334.9;
+                target_spot.y = -117.6;
             }
             else if(point == 5){ 
-                Spot target_spot(372.1,-116.3);
+                target_spot.x = 372.1;
+                target_spot.y = -116.3;
             }
             else{
                 ROS_WARN("arrival fail >> strange type : %d", point);
