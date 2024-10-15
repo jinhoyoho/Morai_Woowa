@@ -3,6 +3,7 @@
 #include <ros/ros.h>
 #include <sensor_msgs/PointCloud2.h>
 #include <sensor_msgs/Imu.h>
+#include <geometry_msgs/Quaternion.h>
 #include "morai_msgs/GPSMessage.h"
 #include <Eigen/Dense>  // Matrix
 #include <vector>
@@ -95,6 +96,8 @@ private:
     ros::Time last_lidar_time;  // 마지막으로 받은 라이다 시간
     ros::Time last_imu_time;  // 마지막으로 받은 imu 시간
     ros::Time last_gps_time;  // 마지막으로 받은 gps 시간
+
+    double heading; // dilly의 heading
 
 
 public:

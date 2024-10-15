@@ -9,9 +9,7 @@ calibration::calibration(ros::NodeHandle& nh):PCAserver_(nh, "/person_collision_
     imu_sub = nh.subscribe("imu", 1, &calibration::imu_callBack, this);
     min_distance = 987654321.0;    // 최소 거리 갱신
 
-    double min_x = 0;   // 최소 좌표
-    double min_y = 0;
-    double min_z = 0;
+    heading = 0;    // dilly의 헤딩
 
     this->do_cali();
 }
@@ -43,7 +41,7 @@ void calibration::object_callBack(const morai_woowa::obj_info::ConstPtr& msg)
 {
     last_image_time = msg->image.header.stamp; // 이미지 스탬프
 
-    if ((last_image_time - last_lidar_time).toSec() < 0.1) { // 100ms 이내의 차이
+    if ((last_image_time - last_lidar_time).toSec() < 0.01) { // 10ms 이내의 차이
             
         frame = cv::Mat(msg->image.height, msg->image.width, CV_8UC3, const_cast<unsigned char*>(msg->image.data.data()), msg->image.step);
 
@@ -77,12 +75,30 @@ void calibration::execute(const morai_woowa::Person_Collision_ActGoalConstPtr& g
 
 void calibration::gps_callBack(const morai_msgs::GPSMessage::ConstPtr& msg)
 {
-    last_gps_time = msg->header.stamp;
+    last_gps_time = msg->header.stamp;  // gps 시간 측정
+    if ((last_imu_time - last_gps_time).toSec() < 0.01)
+    {
+        double latitude = msg.latitude
+        double longitude = msg.longitude
+        double x_offset = msg.eastOffset
+        double y_offset = msg.northOffset
+    }
 }
 
 void calibration::imu_callBack(const sensor_msgs::Imu::ConstPtr& msg)
 {
-    last_imu_time = msg->header.stamp;
+    last_imu_time = msg->header.stamp;  // imu 시간 측정
+    // 쿼터니언 가져오기
+    geometry_msgs::Quaternion orientation = msg->orientation;
+
+    // 쿼터니언에서 yaw 각도 계산
+    double yaw = atan2(2.0 * (orientation.w * orientation.z + orientation.x * orientation.y),
+                        1.0 - 2.0 * (orientation.y * orientation.y + orientation.z * orientation.z));
+
+    // 라디안을 도로 변환
+    heading = yaw * (180.0 / M_PI);
+
+    ROS_INFO("Heading (Yaw): %f degrees", heading);
 }
 
 cv::Mat_<double> calibration::computeRotationMatrix(double roll, double pitch, double yaw) {
