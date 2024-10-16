@@ -57,12 +57,15 @@ class IMGParser:
                         box_size = abs(left - right) * abs(top - bottom)  # 박스 크기
 
                         if box_size > max_box_size: # 박스 크기가 더 크면
+                            max_box_size = box_size # box size 갱신
+                            print(box_size)
                             # 메시지에 xmin, xmax, ymin, ymax 입력해준다.
                             max_detected_obj.xmin = left
                             max_detected_obj.ymin = bottom
                             max_detected_obj.xmax = right
                             max_detected_obj.ymax = top
                             max_detected_obj.name = label
+                            image_copy = cv2.rectangle(image_copy, (left, bottom), (right, top), (0, 0, 255), 2)
                             max_detected_obj.image = self.br.cv2_to_imgmsg(image_copy)                        
 
 
@@ -90,6 +93,7 @@ class IMGParser:
 
                         self.traffic_image_pub.publish(self.br.cv2_to_imgmsg(traffic_image_copy))
 
+
                 if max_box_size != -1:  # 사람을 검출했다면
                     # 이미지 크기 확인
                     if image_copy.size == 0 or image_copy.shape[0] == 0 or image_copy.shape[1] == 0:
@@ -97,7 +101,6 @@ class IMGParser:
                         continue  # 이미지가 유효하지 않으면 건너뜀
 
                     # 인지된 객체 바운딩박스 그려준다.
-                    image_copy = cv2.rectangle(image_copy, (left, bottom), (right, top), (0, 0, 255), 2)
                     self.obj_pub.publish(max_detected_obj)
 
                 # img = results[0].plot()
