@@ -9,7 +9,6 @@ public:
     DynamicPlanning();
     void Brake();
     void Rear();
-    void TurnRight90();
     void TurnLeft90();
     void Turn180();
 

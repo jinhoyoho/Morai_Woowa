@@ -54,7 +54,7 @@ void PurePursuitController::getRobotStatus(const geometry_msgs::PoseStamped::Con
         double angular_velocity = delta_heading / delta_time;
 
         // 계산된 각속도를 출력하거나 저장
-        ROS_INFO("Angular Velocity: %.2f rad/s", angular_velocity);
+        //ROS_INFO("Angular Velocity: %.2f rad/s", angular_velocity);
     }
     // 상태 업데이트 (다음 번 계산을 위해)
     previous_heading = vehicle_yaw;
@@ -62,7 +62,7 @@ void PurePursuitController::getRobotStatus(const geometry_msgs::PoseStamped::Con
 
     // lfd를 동적으로 조정 (기본 lfd 2.0 + 속도 계수 0.5 적용)
     lfd = 2.0 + 0.5 * current_linear_vel;
-    ROS_INFO("Dynamic LFD: %.2f, Current Velocity: %.2f, Angular Velocity: %.2f", lfd, current_linear_vel, current_angular_vel);
+    //ROS_INFO("Dynamic LFD: %.2f, Current Velocity: %.2f, Angular Velocity: %.2f", lfd, current_linear_vel, current_angular_vel);
 }
 
 void PurePursuitController::publishPath(const nav_msgs::Path::ConstPtr& msg) {
@@ -76,7 +76,7 @@ void PurePursuitController::publishPath(const nav_msgs::Path::ConstPtr& msg) {
         waypoint_path.push_back(wp);
     }
 
-    ROS_INFO("Received %zu waypoints.", waypoint_path.size());
+    //ROS_INFO("Received %zu waypoints.", waypoint_path.size());
 }
 
 double PurePursuitController::steering_angle() {
