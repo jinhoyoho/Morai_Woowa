@@ -101,9 +101,6 @@ int main(int argc, char **argv){
                 planning_tracking_as.setSucceeded(pt_result.result);
                 goal_received = false;
             }
-            else{
-                // planning_tracking_as.setAborted(pt_result.result);
-            }
         }
 
         ros::spinOnce();
@@ -117,7 +114,7 @@ void executeCB(const morai_woowa::Planning_Tracking_ActGoalConstPtr &goal){
     load_gpath(goal->path, goal->reverse);
     goal_received = true;
     pt_result.result.success = false;
-    planning_tracking_as.setSucceeded(pt_result.result); 
+    // planning_tracking_as.setSucceeded(pt_result.result); 
 }   
 
 void load_gpath(std::string path_name, bool is_reverse){

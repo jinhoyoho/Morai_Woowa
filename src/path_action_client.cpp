@@ -37,7 +37,7 @@ int main(int argc, char** argv)
 
   // 목표(goal) 생성
   morai_woowa::Planning_Tracking_ActGoal goal;
-  goal.path = "indoor_0_1.csv";  // 목표 위치 설정 (예시, 실제 목표에 맞게 수정)
+  goal.path = "indoor_0_3.csv";  // 목표 위치 설정 (예시, 실제 목표에 맞게 수정)
 
   // 액션 클라이언트에 목표를 보내고, 콜백 함수 등록
   ac.sendGoal(goal, &doneCb, &activeCb, &feedbackCb);
