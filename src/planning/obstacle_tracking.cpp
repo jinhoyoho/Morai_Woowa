@@ -47,13 +47,14 @@ int main(int argc, char **argv){
     while (ros::ok()) {
         pcl::toROSMsg(*cloud_ptr, *cloud_msg_ptr);
         std::cout<<arrow_array_ptr->markers.size()<<std::endl;
+
+        loop_rate.sleep();
+        // ROS_INFO("%ld", clusters_ptr->size());
+        ros::spinOnce();
         if(center_points_history_ptr->size() == 10){
             make_arrows(marker_array_pub);
         }
         obstacle_pub.publish(*obstacle_msg_ptr);
-        loop_rate.sleep();
-        // ROS_INFO("%ld", clusters_ptr->size());
-        ros::spinOnce();
     }
     return 0;
 }
@@ -80,26 +81,32 @@ void cluster_callback(const sensor_msgs::PointCloud2::ConstPtr& msg){
         center_points_ptr->clear();
         center_points_ptr->resize(clusters_ptr->size());
 
-        // 중심 구하기
-        for(int i=0; i<clusters_ptr->size(); i++){
-            auto center_point = get_center(clusters_ptr->at(i).makeShared());
-            center_points_ptr->at(i) = center_point;
-        }
+        if(clusters_ptr->size()>0){
 
-        // 데이터 쌓기
-        if(center_points_ptr->size()>0){
-            center_points_history_ptr->push_back(*center_points_ptr);
-        }
-        
-        if(center_points_history_ptr->size() > 10){
-            center_points_history_ptr->erase(center_points_history_ptr->begin());
-        }
+            // 중심 구하기
+            for(int i=0; i<clusters_ptr->size(); i++){
+                auto center_point = get_center(clusters_ptr->at(i).makeShared());
+                center_points_ptr->at(i) = center_point;
+            }
 
-        if(center_points_history_ptr->size() == 10){
-            tracking();
+            // 데이터 쌓기
+            if(center_points_ptr->size()>0){
+                center_points_history_ptr->push_back(*center_points_ptr);
+            }
             
-            make_obstacle_msg();
+            if(center_points_history_ptr->size() > 10){
+                center_points_history_ptr->erase(center_points_history_ptr->begin());
+            }
+
+            if(center_points_history_ptr->size() == 10){
+                tracking();
+                make_obstacle_msg();
+            }
+
         }
+
+
+
 
     }
 
@@ -118,16 +125,16 @@ void removeSmallClusters() {
         clusters_ptr->end()
     );
 
-    // clusters_ptr->erase(
-    //     std::remove_if(
-    //         clusters_ptr->begin(), 
-    //         clusters_ptr->end(),
-    //         [](const pcl::PointCloud<pcl::PointXYZI>& cloud) {
-    //             return cloud.size() >= 100;  // 사이즈가 10 이하인 클러스터를 제거
-    //         }
-    //     ), 
-    //     clusters_ptr->end()
-    // );
+    clusters_ptr->erase(
+        std::remove_if(
+            clusters_ptr->begin(), 
+            clusters_ptr->end(),
+            [](const pcl::PointCloud<pcl::PointXYZI>& cloud) {
+                return cloud.size() >= 100;  // 사이즈가 10 이하인 클러스터를 제거
+            }
+        ), 
+        clusters_ptr->end()
+    );
 }
 
 pcl::PointXYZ get_center(pcl::PointCloud<pcl::PointXYZI>::Ptr cloud_ptr){
@@ -169,21 +176,23 @@ void tracking(){
             kdtree.nearestKSearch(search_point, K, pointIdxNKNSearch, pointNKNSquaredDistance);
 
             auto nearest_point = target_scene.at(pointIdxNKNSearch[0]);
-
+            // std::cout<<nearest_point<<std::endl;
+            // std::cout<<search_point<<std::endl;
+            // std::cout<<"----------"<<std::endl;
             if(pointNKNSquaredDistance[0]<1){
                 if(- nearest_point.x + search_point.x < 0.5){
                     translation_ptr->at(i).x += - nearest_point.x + search_point.x;
                 }
-                else{
-                    translation_ptr->at(i).x = 0.0;
-                }
+                // else{
+                //     translation_ptr->at(i).x = 0.0;
+                // }
                 
                 if(- nearest_point.y + search_point.y < 0.5){
                     translation_ptr->at(i).y += - nearest_point.y + search_point.y;  
                 }
-                else{
-                    translation_ptr->at(i).y = 0.0;
-                }
+                // else{
+                //     translation_ptr->at(i).y = 0.0;
+                // }
                  
                 translation_ptr->at(i).z += 0.1;
                 search_point = nearest_point;
@@ -197,6 +206,8 @@ void tracking(){
 void make_arrows(ros::Publisher& marker_pub) {
     // 기존 마커들을 삭제
     for (int i = 0; i < arrow_array_ptr->markers.size(); i++) {
+        std::cout<<"delete"<<std::endl;
+        std::cout<<i<<std::endl;
         visualization_msgs::Marker delete_marker;
         delete_marker.header.frame_id = "map";  // 'map' 좌표계 기준
         delete_marker.header.stamp = ros::Time::now();
@@ -212,7 +223,9 @@ void make_arrows(ros::Publisher& marker_pub) {
     arrow_array_ptr->markers.clear();  
 
     // 마커를 초기화하고 새 마커들을 추가
-    for (int i = 0; i < translation_ptr->size(); i++) {
+    for (int i = 0; i < center_points_ptr->size(); i++) {
+        std::cout<<"newadd"<<std::endl;
+        std::cout<<i<<std::endl;
         visualization_msgs::Marker marker;
 
         // Marker의 프레임 설정
@@ -231,6 +244,9 @@ void make_arrows(ros::Publisher& marker_pub) {
 
         // 화살표 시작점과 끝점을 설정
         geometry_msgs::Point start_point;
+        std::cout<<"tp"<<translation_ptr->size()<<std::endl;
+        std::cout<<"tp"<<translation_ptr->at(0)<<std::endl;
+        std::cout<<"cp"<<center_points_ptr->size()<<std::endl;
         start_point.x = center_points_ptr->at(i).x;  // X축을 따라 화살표가 멀어지도록 설정
         start_point.y = center_points_ptr->at(i).y;
         start_point.z = 0.0;
@@ -262,6 +278,8 @@ void make_arrows(ros::Publisher& marker_pub) {
 
     // 새 마커들을 퍼블리시
     for (int i = 0; i < arrow_array_ptr->markers.size(); i++) {
+        std::cout<<"newpub"<<std::endl;
+        std::cout<<i<<std::endl;
         marker_pub.publish(arrow_array_ptr->markers[i]);
     }
 }

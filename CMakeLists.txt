@@ -100,6 +100,10 @@ target_link_libraries(gpath_publisher
   ${PCL_LIBRARIES}
 )
 
+add_executable(path_action_client src/path_action_client.cpp)
+add_dependencies(path_action_client ${morai_woowa_EXPORTED_TARGETS})
+target_link_libraries(path_action_client ${catkin_LIBRARIES})
+
 ##from jimin
 add_executable(state_node src/state_node.cpp)
 add_dependencies(state_node ${morai_woowa_EXPORTED_TARGETS})
