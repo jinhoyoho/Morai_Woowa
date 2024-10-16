@@ -58,7 +58,6 @@ class IMGParser:
 
                         if box_size > max_box_size: # 박스 크기가 더 크면
                             max_box_size = box_size # box size 갱신
-                            print(box_size)
                             # 메시지에 xmin, xmax, ymin, ymax 입력해준다.
                             max_detected_obj.xmin = left
                             max_detected_obj.ymin = bottom

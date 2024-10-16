@@ -38,9 +38,19 @@ bool Traffic::go_crosswalk(morai_woowa::traffic_srv::Request &req, morai_woowa::
 
     ROS_INFO("Traffic response: %d(1 is True, 0 is False)", flag);
 
+    while(crosswalk)
+    {
+        if(flag)
+        {
+            break;
+        }
+
+        ros::spinOnce();
+    }
+
     res.Go = flag;
     
-    return flag;
+    return res.Go;
 }
 
 void Traffic::process_image()
