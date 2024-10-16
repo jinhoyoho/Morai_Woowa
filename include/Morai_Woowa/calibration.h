@@ -2,9 +2,7 @@
 #include <string>
 #include <ros/ros.h>
 #include <sensor_msgs/PointCloud2.h>
-#include <sensor_msgs/Imu.h>
 #include <geometry_msgs/Quaternion.h>
-#include "morai_msgs/GPSMessage.h"
 #include <Eigen/Dense>  // Matrix
 #include <vector>
 #include <unordered_map>
@@ -22,8 +20,7 @@
 
 #include "morai_woowa/obj_info.h"
 
-#include <actionlib/server/simple_action_server.h>
-#include "morai_woowa/Person_Collision_ActAction.h"
+#include <geometry_msgs/Vector3.h>  // Lidar 좌표를 publish
 
 
 class calibration
@@ -31,11 +28,7 @@ class calibration
 private:
     ros::Subscriber lidar_sub;  // Lidar Pre를 받음
     ros::Subscriber object_sub; // detect한 이미지 사각형의 x, y와 이미지를 전달
-    ros::Subscriber imu_sub; // detect한 이미지 사각형의 x, y와 이미지를 전달
-    ros::Subscriber gps_sub; // detect한 이미지 사각형의 x, y와 이미지를 전달
-    actionlib::SimpleActionServer<morai_woowa::Person_Collision_ActAction> PCAserver_;
-    morai_woowa::Person_Collision_ActFeedback feedback_;
-    morai_woowa::Person_Collision_ActResult result_;
+    ros::Publisher lidar_pub;   // Lidar 좌표 publish
     
     cv::Mat frame;  // 이미지
     
@@ -100,9 +93,6 @@ public:
     
     void lidar_callBack(const sensor_msgs::PointCloud2ConstPtr& msg); // Lidar 받기
     void object_callBack(const morai_woowa::obj_info::ConstPtr& msg);
-    void imu_callBack(const sensor_msgs::Imu::ConstPtr& msg);
-    void gps_callBack(const morai_msgs::GPSMessage::ConstPtr& msg);
-    void execute(const morai_woowa::Person_Collision_ActGoalConstPtr& goal);
     void do_cali();  // calibration 실행
     void projection(cv::Mat frame); // 라이다 점을 이미지에 투영
 
