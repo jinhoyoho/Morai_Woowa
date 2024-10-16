@@ -8,7 +8,7 @@ PurePursuitController::PurePursuitController(ros::NodeHandle& nh) :
     previous_time(ros::Time(0)), previous_heading(0.0)
 {
     // Subscriber
-    gpath_sub_ = nh.subscribe("/lpath", 10, &PurePursuitController::publishPath, this);  // Waypoint 구독
+    gpath_sub_ = nh.subscribe("/gpath", 10, &PurePursuitController::publishPath, this);  // Waypoint 구독
     current_pose_sub_ = nh.subscribe("/current_pose", 10, &PurePursuitController::getRobotStatus, this);
     odom_sub_ = nh.subscribe("/odom", 10, &PurePursuitController::odomCallback, this);
     // Publisher
@@ -34,6 +34,8 @@ void PurePursuitController::getRobotStatus(const geometry_msgs::PoseStamped::Con
     tf::Matrix3x3 m(q);
     double roll, pitch;
     m.getRPY(roll, pitch, vehicle_yaw);  // Yaw 값을 얻음 (라디안 단위)
+        // 현재 x, y 좌표를 출력
+    ROS_INFO("Current Position -> x: %.2f, y: %.2f", current_position.x, current_position.y);
     // 현재 시간 얻기
     ros::Time current_time = ros::Time::now();
 
@@ -54,7 +56,7 @@ void PurePursuitController::getRobotStatus(const geometry_msgs::PoseStamped::Con
         double angular_velocity = delta_heading / delta_time;
 
         // 계산된 각속도를 출력하거나 저장
-        ROS_INFO("Angular Velocity: %.2f rad/s", angular_velocity);
+        //ROS_INFO("Angular Velocity: %.2f rad/s", angular_velocity);
     }
     // 상태 업데이트 (다음 번 계산을 위해)
     previous_heading = vehicle_yaw;
@@ -62,7 +64,7 @@ void PurePursuitController::getRobotStatus(const geometry_msgs::PoseStamped::Con
 
     // lfd를 동적으로 조정 (기본 lfd 2.0 + 속도 계수 0.5 적용)
     lfd = 2.0 + 0.5 * current_linear_vel;
-    ROS_INFO("Dynamic LFD: %.2f, Current Velocity: %.2f, Angular Velocity: %.2f", lfd, current_linear_vel, current_angular_vel);
+    //ROS_INFO("Dynamic LFD: %.2f, Current Velocity: %.2f, Angular Velocity: %.2f", lfd, current_linear_vel, current_angular_vel);
 }
 
 void PurePursuitController::publishPath(const nav_msgs::Path::ConstPtr& msg) {
@@ -76,7 +78,7 @@ void PurePursuitController::publishPath(const nav_msgs::Path::ConstPtr& msg) {
         waypoint_path.push_back(wp);
     }
 
-    ROS_INFO("Received %zu waypoints.", waypoint_path.size());
+    //ROS_INFO("Received %zu waypoints.", waypoint_path.size());
 }
 
 double PurePursuitController::steering_angle() {
@@ -176,6 +178,18 @@ void PurePursuitController::controlLoop() {
             target_angular_velocity = -0.83;
         }
 
+        // 현재 위치와 마지막 웨이포인트 비교 후 정지
+        if (!waypoint_path.empty()) {
+            Waypoint last_point = waypoint_path.back();
+            double dist_to_goal = hypot(last_point.x - current_position.x, last_point.y - current_position.y);
+
+            // 목표 지점에 가까워지면 정지
+            if (dist_to_goal < 0.5) {  // 0.3m 이내일 때 정지
+                Brake();
+                ROS_INFO("Reached final point and stopped!");
+                break;
+            }
+        }
         morai_msgs::SkidSteer6wUGVCtrlCmd ctrl_cmd;
         ctrl_cmd.cmd_type = 3;
         ctrl_cmd.Target_linear_velocity = speed;
@@ -183,6 +197,14 @@ void PurePursuitController::controlLoop() {
         ctrl_cmd_pub_.publish(ctrl_cmd);
         rate.sleep();
     }
+}
+void PurePursuitController::Brake() {
+    morai_msgs::SkidSteer6wUGVCtrlCmd ctrl_cmd;
+    ctrl_cmd.cmd_type = 3;
+    ctrl_cmd.Target_linear_velocity = 0;
+    ctrl_cmd.Target_angular_velocity = 0;
+    ctrl_cmd_pub_.publish(ctrl_cmd);
+    ROS_INFO("Brake Activated!");
 }
 
 int main(int argc, char** argv) {

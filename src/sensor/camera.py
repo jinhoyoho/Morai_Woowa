@@ -43,41 +43,35 @@ class IMGParser:
                 # object_detection 결과가 boxes에 담긴다
                 boxes = results[0].boxes.cpu().numpy().data
 
+                max_detected_obj = obj_info()   # publish할 obj_info
+                max_box_size = -1    # 가장 큰 박스 사이즈
+
                 for box in boxes:
                     label = results[0].names[int(box[5])]
-                    if box[4] > 0.3 and label == 'person':  # 사람 or 신호등 경우에만 그리기
-                        detected_obj = obj_info()
+                    if box[4] > 0.3 and label == 'person':  # 사람인 경우
                         left = int(box[0])
                         bottom = int(box[1])
                         right = int(box[2])
                         top = int(box[3])
-                        confidence = int(box[4])
 
-                        # 메시지에 xmin, xmax, ymin, ymax 입력해준다.
-                        detected_obj.xmin = left
-                        detected_obj.ymin = bottom
-                        detected_obj.xmax = right
-                        detected_obj.ymax = top
-                        detected_obj.name = label
-                        detected_obj.image = self.br.cv2_to_imgmsg(image_copy)
+                        box_size = abs(left - right) * abs(top - bottom)  # 박스 크기
 
+                        if box_size > max_box_size: # 박스 크기가 더 크면
+                            max_box_size = box_size # box size 갱신
+                            print(box_size)
+                            # 메시지에 xmin, xmax, ymin, ymax 입력해준다.
+                            max_detected_obj.xmin = left
+                            max_detected_obj.ymin = bottom
+                            max_detected_obj.xmax = right
+                            max_detected_obj.ymax = top
+                            max_detected_obj.name = label
+                            
 
-                        # 이미지 크기 확인
-                        if image_copy.size == 0 or image_copy.shape[0] == 0 or image_copy.shape[1] == 0:
-                            rospy.logwarn("Empty image copy. Skipping publishing.")
-                            continue  # 이미지가 유효하지 않으면 건너뜀
-
-                        # 인지된 객체 바운딩박스 그려준다.
-                        image_copy = cv2.rectangle(image_copy, (left, bottom), (right, top), (0, 0, 255), 2)
-                        self.obj_pub.publish(detected_obj)
-
-
-                    elif label == 'traffic light':
+                    elif box[4] > 0.3 and label == 'traffic light':
                         left = int(box[0])
                         bottom = int(box[1])  # top보다 더 작음
                         right = int(box[2])
                         top = int(box[3])
-                        confidence = int(box[4])
 
                         # 가로가 더 긴 신호등은 건너뛰기
                         if abs(left - right) > abs(bottom - top):
@@ -95,6 +89,19 @@ class IMGParser:
                             continue  # 이미지가 유효하지 않으면 건너뜀
 
                         self.traffic_image_pub.publish(self.br.cv2_to_imgmsg(traffic_image_copy))
+
+
+                if max_box_size != -1:  # 사람을 검출했다면
+                    # 이미지 크기 확인
+                    if image_copy.size == 0 or image_copy.shape[0] == 0 or image_copy.shape[1] == 0:
+                        rospy.logwarn("Empty image copy. Skipping publishing.")
+                        continue  # 이미지가 유효하지 않으면 건너뜀
+
+                    image_copy = cv2.rectangle(image_copy, (max_detected_obj.xmin, max_detected_obj.ymin), (max_detected_obj.xmax, max_detected_obj.ymax), (0, 0, 255), 2)
+                    max_detected_obj.image = self.br.cv2_to_imgmsg(image_copy)
+
+                    # 인지된 객체 바운딩박스 그려준다.
+                    self.obj_pub.publish(max_detected_obj)
 
                 # img = results[0].plot()
             

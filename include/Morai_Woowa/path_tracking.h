@@ -22,6 +22,7 @@ public:
     double steering_angle();
     double calculateCurvature();
     void controlLoop();
+    void Brake();
 
 
 private:

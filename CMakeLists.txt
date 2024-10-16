@@ -54,7 +54,7 @@ generate_messages(
 
 
 catkin_package(
-#  INCLUDE_DIRS include
+# INCLUDE_DIRS include
   LIBRARIES morai_woowa
   CATKIN_DEPENDS geometry_msgs nav_msgs tf morai_msg roscpp rospy stds_msg message_runtime pcl_conversions pcl_ros actionlib_msgs
 #  DEPENDS system_lib
@@ -73,6 +73,8 @@ include_directories(
 add_executable(sensor_main src/sensor/sensor_main.cpp src/sensor/calibration.cpp src/sensor/LiDAR_pre.cpp src/sensor/traffic.cpp)
 target_link_libraries(sensor_main ${catkin_LIBRARIES} ${OpenCV_LIBS} ${PCL_LIBRARIES})
 
+add_executable(person_action_node src/sensor/person_action_node.cpp)
+target_link_libraries(person_action_node ${catkin_LIBRARIES})
 
 ##from sanghun
 add_executable(lidar_db src/planning/lidar_db.cpp)

@@ -1,15 +1,11 @@
 #include "Morai_Woowa/calibration.h"
 
-calibration::calibration(ros::NodeHandle& nh):PCAserver_(nh, "person_collision_action", boost::bind(&calibration::execute, this, _1) ,false)
+calibration::calibration(ros::NodeHandle& nh)
 {
-    PCAserver_.start(); // 액션서버 시작
     lidar_sub = nh.subscribe("lidar_pre", 1, &calibration::lidar_callBack, this);
     object_sub = nh.subscribe("person", 1, &calibration::object_callBack, this);
-    gps_sub = nh.subscribe("gps", 1, &calibration::gps_callBack, this);
-    imu_sub = nh.subscribe("imu", 1, &calibration::imu_callBack, this);
+    lidar_pub = nh.advertise<geometry_msgs::Vector3>("lidar_coord", 10);
     min_distance = 987654321.0;    // 최소 거리 갱신
-
-    heading = 0;    // dilly의 헤딩
 
     this->do_cali();
 }
@@ -57,22 +53,6 @@ void calibration::object_callBack(const morai_woowa::obj_info::ConstPtr& msg)
         if(cv::waitKey(10) == 27) exit(-1);
     }
 }
-
-void calibration::execute(const morai_woowa::Person_Collision_ActGoalConstPtr& goal)
-{
-    ROS_INFO("Execute action: Person Collision Action!");
-
-    // 찾는 범위 보다 크다면 false (987654321 포함) -> 오작동 같은 예외처리 필요!
-    if(goal->range < min_distance)
-    {   
-        ROS_INFO("Action Fail: Do not meet range");
-        // 모두 실패!
-        feedback_.is_target = false;
-        PCAserver_.publishFeedback(feedback_);
-    }
-    // else if(min_distance < 0)
-}
-
 
 cv::Mat_<double> calibration::computeRotationMatrix(double roll, double pitch, double yaw) {
     // 각도를 라디안으로 변환
@@ -205,6 +185,7 @@ void calibration::projection(cv::Mat frame)
 
         
             std::vector<cv::Point2f> imageProjections; // 이미지에 투영시킬 좌표
+
             if (minClassId != -1) // -1이 아닐때 실행
             {
                 cv::projectPoints(classPoints[minClassId], rvec, tvec, cameraMatrix, distCoeffs, imageProjections);
@@ -218,9 +199,11 @@ void calibration::projection(cv::Mat frame)
                     cv::circle(frame, cv::Point(x, y), 3, cv::Scalar(0, 0, 255), -1); // 점 찍기
                 }
 
-
-                std::cout << "Average Distance: " << min_distance << "\n";
-                std::cout << "Average Coord: " << average_x << " " << average_y << " " << average_z << "\n";
+                geometry_msgs::Vector3 vector_msg;
+                vector_msg.x = average_x;
+                vector_msg.y = average_y;
+                vector_msg.z = average_z;
+                lidar_pub.publish(vector_msg);
             }
         }
     }
