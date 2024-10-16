@@ -95,6 +95,11 @@ target_link_libraries(dwa
   ${PCL_LIBRARIES}
 )
 
+add_executable(dwa_class src/planning/dwa_class.cpp)
+target_link_libraries(dwa_class
+  ${catkin_LIBRARIES}
+  ${PCL_LIBRARIES}
+)
 
 add_executable(gpath_publisher src/planning/gpath_publisher.cpp)
 target_link_libraries(gpath_publisher
