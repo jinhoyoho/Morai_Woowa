@@ -86,7 +86,7 @@ void LiDAR_pre::cloud_callBack(const sensor_msgs::PointCloud2& msg)
 
    this->roi(); // 관심 영역 설정
    this->voxel(); // Down sampling(voxel) 실행
-   this->outlier(); // outlier 제거
+//    this->outlier(); // outlier 제거
    this->ransac(); // ransac 실행
    this->dbscan(EPSILON, MIN_POINTS);
 
