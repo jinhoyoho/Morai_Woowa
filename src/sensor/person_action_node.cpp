@@ -20,6 +20,11 @@ void person_action_node::execute(const morai_woowa::Person_Collision_ActGoalCons
 void person_action_node::coord_callBack(const geometry_msgs::Vector3::ConstPtr& msg)
 {
     ROS_INFO("Recived Lidar Coord: %f %f %f", msg->x, msg->y, msg->z);
+    // 거리 계산
+    double averageDistance = std::sqrt(msg->x * msg->x + 
+                                        msg->y * msg->y + 
+                                        msg->z * msg->z);
+    ROS_INFO("Distance: %f", averageDistance);
 }
 
 

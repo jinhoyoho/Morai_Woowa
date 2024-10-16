@@ -199,10 +199,6 @@ void calibration::projection(cv::Mat frame)
                     cv::circle(frame, cv::Point(x, y), 3, cv::Scalar(0, 0, 255), -1); // 점 찍기
                 }
 
-
-                std::cout << "Average Distance: " << min_distance << "\n";
-                std::cout << "Average Coord: " << average_x << " " << average_y << " " << average_z << "\n";
-                
                 geometry_msgs::Vector3 vector_msg;
                 vector_msg.x = average_x;
                 vector_msg.y = average_y;
