@@ -108,8 +108,14 @@ void LiDAR_pre::Pub2Sensor_utm(pcl::PointCloud<pcl::PointXYZI> pc2)
 void LiDAR_pre::cloud_callBack(const sensor_msgs::PointCloud2& msg)
 {
     pcl::fromROSMsg(msg, cloud_data); // ROS 메시지를 PCL 포인트 클라우드로 변환
+    
+   this->roi(); // 관심 영역 설정
+   this->voxel(); // Down sampling(voxel) 실행
+//    this->outlier(); // outlier 제거
+   this->ransac(); // ransac 실행
+   this->dbscan(EPSILON, MIN_POINTS);
 
-    // 포인트 클라우드 변환
+   // 포인트 클라우드 변환
     for (auto& point : cloud_data.points) {
         Eigen::Vector3d p(point.x, point.y, point.z);
         p = computeRotationMatrix(0, 10, 0) * p; // 회전 변환 적용
@@ -118,11 +124,6 @@ void LiDAR_pre::cloud_callBack(const sensor_msgs::PointCloud2& msg)
         point.z = p(2);
     }
 
-   this->roi(); // 관심 영역 설정
-   this->voxel(); // Down sampling(voxel) 실행
-//    this->outlier(); // outlier 제거
-   this->ransac(); // ransac 실행
-   this->dbscan(EPSILON, MIN_POINTS);
 
    Pub2Sensor(cloud_data);
 
