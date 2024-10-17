@@ -95,12 +95,21 @@ target_link_libraries(dwa
   ${PCL_LIBRARIES}
 )
 
+add_executable(dwa_class src/planning/dwa_class.cpp)
+target_link_libraries(dwa_class
+  ${catkin_LIBRARIES}
+  ${PCL_LIBRARIES}
+)
 
 add_executable(gpath_publisher src/planning/gpath_publisher.cpp)
 target_link_libraries(gpath_publisher
   ${catkin_LIBRARIES}
   ${PCL_LIBRARIES}
 )
+
+add_executable(path_action_client src/path_action_client.cpp)
+add_dependencies(path_action_client ${morai_woowa_EXPORTED_TARGETS})
+target_link_libraries(path_action_client ${catkin_LIBRARIES})
 
 ##from jimin
 add_executable(state_node src/state_node.cpp)

@@ -10,6 +10,13 @@
 #include <pcl_conversions/pcl_conversions.h>
 #include <pcl/kdtree/kdtree_flann.h>
 #include <tf/tf.h>
+#include <actionlib/server/simple_action_server.h>
+#include <morai_woowa/Planning_Tracking_ActAction.h>
+#include <iostream>
+#include <fstream>
+#include <sstream>
+#include <stdexcept>
+#include <algorithm>  // std::reverse
 
 //2024 10 01 dwa가 동적 장애물을 받고 적용하도록 수정
 //2024 10 12 dwa global frame
@@ -20,6 +27,7 @@ double velocity = 1.0;
 double angular_velocity = 0.5;
 double obstacle_cost = 2.0;
 double global_path_cost = 0.1;
+double progress = 0.0;
 
 const double PI = 3.1415926;
 
@@ -28,6 +36,7 @@ void obstacle_callback(const sensor_msgs::PointCloud2::ConstPtr& msg);
 void pose_callback(const geometry_msgs::PoseStamped::ConstPtr& msg);
 void gpath_callback(const nav_msgs::Path::ConstPtr& msg);
 void filter_obstacle();
+void load_gpath(std::string path_name, bool is_reverse);
 void gpath_cut();
 void make_candidate_path(std::shared_ptr<std::vector<std::vector<std::vector<double>>>> candidate_path_ptr);
 void vote_president_path(std::shared_ptr<std::vector<std::vector<std::vector<double>>>> candidate_path_ptr);
@@ -35,29 +44,36 @@ void make_msg(std::shared_ptr<std::vector<std::vector<std::vector<double>>>> can
              std::shared_ptr<std::vector<std::vector<double>>> president_path_ptr,
              std::shared_ptr<sensor_msgs::PointCloud> candidate_msg_ptr, std::shared_ptr<nav_msgs::Path> president_msg_ptr);
 
+void executeCB(const morai_woowa::Planning_Tracking_ActGoalConstPtr &goal);
+
 auto obstacle_ptr = std::make_shared<std::vector<std::vector<double>>>();
 auto pose_ptr = std::make_shared<std::vector<double>>(3);
 auto global_path_ptr = std::make_shared<std::vector<std::vector<double>>>();
 auto president_path_ptr = std::make_shared<std::vector<std::vector<double>>>();
 pcl::PointCloud<pcl::PointXYZI>::Ptr cloud_ptr(new pcl::PointCloud<pcl::PointXYZI>());
 int best_idx = int(num_of_path*0.5) + 1;
+bool goal_received = false;
+
+morai_woowa::Planning_Tracking_ActActionResult pt_result;
+morai_woowa::Planning_Tracking_ActActionFeedback pt_feedback;
+// actionlib::SimpleActionServer<morai_woowa::Planning_Tracking_ActAction> planning_tracking_as;
 
 int main(int argc, char **argv){
     ros::init(argc, argv, "dwa");
     ros::NodeHandle nh;
+    actionlib::SimpleActionServer<morai_woowa::Planning_Tracking_ActAction> planning_tracking_as(nh, "planning_tracking", executeCB, false);
     ros::Rate loop_rate(10);
     ros::Publisher candidate_pub = nh.advertise<sensor_msgs::PointCloud>("candidate_path", 100);
     ros::Publisher president_pub = nh.advertise<nav_msgs::Path>("lpath", 100);
     ros::Subscriber obstacle_sub = nh.subscribe("obstacle", 100, obstacle_callback);
     ros::Subscriber pose_sub = nh.subscribe("current_pose", 100, pose_callback);
-    ros::Subscriber global_path = nh.subscribe("/gpath", 100, gpath_callback);
+    // ros::Subscriber global_path = nh.subscribe("/gpath", 100, gpath_callback);
 
     auto candidate_path_ptr = std::make_shared<std::vector<std::vector<std::vector<double>>>>();
 
-    
-
+    planning_tracking_as.start();
     while(ros::ok()){
-        std::cout<<global_path_ptr->size()<<std::endl;
+        // std::cout<<global_path_ptr->size()<<std::endl;
         if(global_path_ptr->size()>0){
             gpath_cut();
             make_candidate_path(candidate_path_ptr);
@@ -73,6 +89,20 @@ int main(int argc, char **argv){
             std::cout<<"================"<<std::endl;
         }
 
+        if(goal_received){
+            std::cout<<"goal_recieved"<<std::endl;
+            pt_feedback.feedback.progress_percentage = progress;
+            planning_tracking_as.publishFeedback(pt_feedback.feedback);
+
+            pt_result.result.success = false;
+
+            if(progress > 0.95){
+                pt_result.result.success = true;
+                planning_tracking_as.setSucceeded(pt_result.result);
+                goal_received = false;
+            }
+        }
+
         ros::spinOnce();
         loop_rate.sleep();
     }
@@ -80,20 +110,80 @@ int main(int argc, char **argv){
     
 }
 
+void executeCB(const morai_woowa::Planning_Tracking_ActGoalConstPtr &goal){
+    load_gpath(goal->path, goal->reverse);
+    goal_received = true;
+    pt_result.result.success = false;
+    // planning_tracking_as.setSucceeded(pt_result.result); 
+}   
+
+void load_gpath(std::string path_name, bool is_reverse){
+    global_path_ptr->clear();
+    
+    auto file_name = "/home/user/catkin_ws/src/Morai_Woowa/path/" + path_name;
+    std::ifstream file(file_name);
+    if (!file.is_open()) {
+        ROS_ERROR("Failed to open file.");
+        std::cout<<file_name<<std::endl;
+        return;
+    }
+
+    std::string line;
+    while (std::getline(file, line)) {
+        std::stringstream ss(line);
+        std::string x_str, y_str, heading_str, index_str;
+
+        // Read x, y, heading, and index from the CSV file
+        std::getline(ss, x_str, ',');
+        std::getline(ss, y_str, ',');
+        std::getline(ss, heading_str, ',');
+        std::getline(ss, index_str, ',');
+
+        // 디버그용 출력: 읽은 값을 출력하여 확인
+        // ROS_INFO("Read values: x_str=%s, y_str=%s", x_str.c_str(), y_str.c_str());
+
+        // Check if x and y values are not empty
+        if (x_str.empty() || y_str.empty()) {
+            ROS_WARN("Empty x or y value, skipping line");
+            continue;  // Skip this line if x or y is empty
+        }
+
+        try {
+            double x = std::stof(x_str);
+            double y = std::stof(y_str);
+
+            global_path_ptr->push_back({x, y, 0.0});
+
+        } catch (const std::invalid_argument& e) {
+            ROS_WARN("Invalid data encountered: %s", e.what());
+            continue;  // Skip this line if there's an invalid value
+        } catch (const std::out_of_range& e) {
+            ROS_WARN("Out of range error: %s", e.what());
+            continue;  // Skip this line if values are out of range
+        }
+    }
+
+    file.close();
+
+    if(is_reverse){
+        std::reverse(global_path_ptr->begin(), global_path_ptr->end());
+    }
+}
+
 void obstacle_callback(const sensor_msgs::PointCloud2::ConstPtr& msg){
     pcl::fromROSMsg(*msg, *cloud_ptr);
 }
 
-void gpath_callback(const nav_msgs::Path::ConstPtr& msg) {
-    global_path_ptr->clear();
-    global_path_ptr->reserve(msg->poses.size());
+// void gpath_callback(const nav_msgs::Path::ConstPtr& msg) {
+//     global_path_ptr->clear();
+//     global_path_ptr->reserve(msg->poses.size());
 
-    for (int i = 0; i < msg->poses.size(); i++) {
-        double x = msg->poses[i].pose.position.x;
-        double y = msg->poses[i].pose.position.y;
-        global_path_ptr->push_back({x, y, 0});  // x, y를 vector로 저장
-    }
-}
+//     for (int i = 0; i < msg->poses.size(); i++) {
+//         double x = msg->poses[i].pose.position.x;
+//         double y = msg->poses[i].pose.position.y;
+//         global_path_ptr->push_back({x, y, 0});  // x, y를 vector로 저장
+//     }
+// }
 
 void gpath_cut(){
     int idx = -1;
@@ -103,10 +193,10 @@ void gpath_cut(){
         auto g_x = global_path_ptr->at(global_path_ptr->size() - i -1).at(0);
         auto g_y = global_path_ptr->at(global_path_ptr->size() - i -1).at(1);
         auto dis = calculateDistance({g_x, g_y, 0.0}, {pose_ptr->at(0), pose_ptr->at(1), 0.0});
-        if(dis < 0.5){
-            idx = global_path_ptr->size() - i -1;
-            break;
-        }
+        // if(dis < 0.5){
+        //     idx = global_path_ptr->size() - i -1;
+        //     break;
+        // }
         if(dis < closet_dis){
             closet_dis = dis;
             closet_idx = global_path_ptr->size() - i -1;
@@ -122,6 +212,8 @@ void gpath_cut(){
     if(sliced.size() > predict_time * 10){
         sliced.resize(predict_time * 10);
     }
+
+    progress = sliced.size() / global_path_ptr->size();
 
     *global_path_ptr = sliced;
 }
@@ -165,28 +257,29 @@ void filter_obstacle(){
 
 
 void make_candidate_path(std::shared_ptr<std::vector<std::vector<std::vector<double>>>> candidate_path_ptr){
+    std::cout<<"cadi_start"<<std::endl;
     auto av_gap = 2 * angular_velocity / (num_of_path - 1);
     candidate_path_ptr->clear();
     candidate_path_ptr->reserve((num_of_path + 1));
 
     candidate_path_ptr->push_back(*global_path_ptr);
 
-    std::cout<<"01"<<std::endl;
     for(int i = 0; i < num_of_path; i++){
         std::vector<std::vector<double>> candidate_i;
         candidate_i.reserve(global_path_ptr->size());
         auto current_angular_velocity = angular_velocity - av_gap * i ;
-        for(double j = 0.0; j < global_path_ptr->size(); j++){
+        for(int j = 0; j < global_path_ptr->size(); j++){
             auto time = j * 0.1;
             std::vector<double> candidate_element = {pose_ptr->at(0) + velocity * time * std::cos(current_angular_velocity * time + pose_ptr->at(2)), pose_ptr->at(1) + velocity * time * std::sin(current_angular_velocity * time + pose_ptr->at(2)), 0.0};
             candidate_i.push_back(candidate_element); 
         }
         candidate_path_ptr->push_back(candidate_i); 
     }
-    std::cout<<"02"<<std::endl;
+    std::cout<<"cadi_done"<<std::endl;
 }
 
 void vote_president_path(std::shared_ptr<std::vector<std::vector<std::vector<double>>>> candidate_path_ptr){
+    std::cout<<"vote_start"<<std::endl;
     auto best_cost = 999999.9;
     obstacle_ptr->clear();
     obstacle_ptr->resize(cloud_ptr->size());
@@ -203,7 +296,7 @@ void vote_president_path(std::shared_ptr<std::vector<std::vector<std::vector<dou
                 obstacle_ptr->at(k).at(2) = 0.0;
 
                 auto distance = calculateDistance(current_candidate.at(j), obstacle_ptr->at(k));
-                if(distance < 1){
+                if(distance < 1.5){
                     current_cost += 9999;
                 }
                 // current_cost += obstacle_cost / std::pow(distance, 2);
@@ -230,9 +323,11 @@ void vote_president_path(std::shared_ptr<std::vector<std::vector<std::vector<dou
         }
     }
     president_path_ptr->clear();
-    for(int j = 0; j < predict_time * 10; j++){
+    for(int j = 0; j < global_path_ptr->size(); j++){
         president_path_ptr->push_back(candidate_path_ptr->at(best_idx).at(j));
     }
+
+    std::cout<<"vote_done"<<std::endl;
 
 }
 

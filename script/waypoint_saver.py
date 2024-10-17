@@ -11,7 +11,7 @@ class PoseSaver:
     def __init__(self):
         rospy.init_node('pose_saver', anonymous=True)
 
-        self.path_name = "indoor_0_2.csv"
+        self.path_name = "circle.csv"
         self.save_directory = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), 'path')
 
         self.pose_sub = rospy.Subscriber('current_pose', PoseStamped, self.pose_callback)

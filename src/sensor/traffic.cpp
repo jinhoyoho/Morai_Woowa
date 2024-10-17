@@ -30,17 +30,40 @@ void Traffic::image_callBack(const sensor_msgs::ImageConstPtr& msg)
     }
 }
 
+
 bool Traffic::go_crosswalk(morai_woowa::traffic_srv::Request &req, morai_woowa::traffic_srv::Response &res)
 {
     crosswalk = req.CrossWalk;  // request를 받음
     
     ROS_INFO("Traffic request: %d(1 is True, 0 is False)", crosswalk);
 
-    ROS_INFO("Traffic response: %d(1 is True, 0 is False)", flag);
+    ros::Time traffic_time = ros::Time::now(); // 40초: 빨간불부터 초록불까지 한 cycle
+    ros::Duration cycle_duration(40.0); // 40초
 
-    res.Go = flag;
-    
-    return flag;
+    while(crosswalk)
+    {
+        if(flag)
+        {
+            break;
+        }
+
+        ros::Time current_time = ros::Time::now(); // 현재 시간
+
+        // 경과 시간 계산
+        ros::Duration elapsed_time = current_time - traffic_time;
+
+        // 40초가 지났는지 확인
+        if (elapsed_time >= cycle_duration) {
+            ROS_INFO("Finish 40seconds");
+            break;  // 탈출!
+        }
+
+        ros::spinOnce();    // 콜백 처리
+        ros::Duration(0.1).sleep(); // CPU 사용을 줄이기 위해 잠시 대기
+    }
+
+    res.Go = true;  // 무조건 true 값 전달
+    return res.Go;
 }
 
 void Traffic::process_image()

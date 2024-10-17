@@ -86,7 +86,7 @@ void LiDAR_pre::cloud_callBack(const sensor_msgs::PointCloud2& msg)
 
    this->roi(); // 관심 영역 설정
    this->voxel(); // Down sampling(voxel) 실행
-   this->outlier(); // outlier 제거
+//    this->outlier(); // outlier 제거
    this->ransac(); // ransac 실행
    this->dbscan(EPSILON, MIN_POINTS);
 
@@ -284,8 +284,9 @@ void LiDAR_pre::coord_transform()
     // transform(2, 3) = static_cast<double>(current_pose.pose.position.z);
 
     // 포인트 클라우드 변환
-    for (const auto& point : data_p_->points) {
+    for (auto& point : data_p_->points) {
         pcl::PointXYZI transformed_point;
+        point.x += 0.42;
 
         // 회전 변환
         transformed_point.x = transform(0, 0) * point.x + transform(0, 1) * point.y + transform(0, 2) * point.z + current_pose.pose.position.x;//transform(0, 3);

@@ -49,8 +49,7 @@ void calibration::object_callBack(const morai_woowa::obj_info::ConstPtr& msg)
             xmin = msg->xmin;
             this->projection(frame);
         }
-        cv::imshow("Projection Image", frame);
-        if(cv::waitKey(10) == 27) exit(-1);
+        
     }
 }
 
@@ -112,6 +111,10 @@ void calibration::projection(cv::Mat frame)
         // lidar_points가 존재했을때 실행
         if(lidar_points.size())
         {
+            // 디버깅용 이미지
+            // cv::Mat copy_frame = frame;
+
+
              // 이미지 포인트를 저장할 벡터
             std::vector<cv::Point2f> imagePoints;
             
@@ -127,6 +130,9 @@ void calibration::projection(cv::Mat frame)
                 int x = static_cast<int>(imagePoint.x); // X 좌표
                 int y = static_cast<int>(imagePoint.y); // Y 좌표
 
+                // cv::circle(copy_frame, cv::Point(x, y), 3, cv::Scalar(0, 0, 255), -1); // 점 찍기
+
+
                 // 박스 안에 있을 때만 점 찍기
                 if ((xmin <= x) && (x <= xmax) && (ymin <= y) && (y <= ymax))
                 {
@@ -137,6 +143,8 @@ void calibration::projection(cv::Mat frame)
                     classPoints[classId].push_back(lidarPoint); // 라이다 좌표 저장
                 }
             }
+
+            // cv::imshow("Debug Projection", copy_frame);
             
             int minClassId = -1;
             min_distance = std::numeric_limits<double>::max(); // 무한대로 초기화
@@ -198,6 +206,8 @@ void calibration::projection(cv::Mat frame)
 
                     cv::circle(frame, cv::Point(x, y), 3, cv::Scalar(0, 0, 255), -1); // 점 찍기
                 }
+                cv::imshow("Projection Image", frame);
+                if(cv::waitKey(10) == 27) exit(-1);
 
                 geometry_msgs::Vector3 vector_msg;
                 vector_msg.x = average_x;
