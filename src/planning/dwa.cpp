@@ -56,7 +56,7 @@ bool goal_received = false;
 
 morai_woowa::Planning_Tracking_ActActionResult pt_result;
 morai_woowa::Planning_Tracking_ActActionFeedback pt_feedback;
-actionlib::SimpleActionServer<morai_woowa::Planning_Tracking_ActAction> planning_tracking_as;
+// actionlib::SimpleActionServer<morai_woowa::Planning_Tracking_ActAction> planning_tracking_as;
 
 int main(int argc, char **argv){
     ros::init(argc, argv, "dwa");
