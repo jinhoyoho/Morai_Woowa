@@ -12,6 +12,32 @@ LiDAR_pre::LiDAR_pre(ros::NodeHandle& nh)
     pub_utm_pcl = nh.advertise<sensor_msgs::PointCloud2> ("lidar_utm", 1);
 }
 
+Eigen::Matrix3d LiDAR_pre::computeRotationMatrix(double roll, double pitch, double yaw) {
+    // 각도를 라디안으로 변환
+    roll *= M_PI / 180.0;
+    pitch *= M_PI / 180.0;
+    yaw *= M_PI / 180.0;
+
+    // 회전 행렬 계산
+    Eigen::Matrix3d  R_x;
+    R_x << 1, 0, 0,
+           0, cos(roll), -sin(roll),
+           0, sin(roll), cos(roll);
+
+    Eigen::Matrix3d  R_y;
+    R_y << cos(pitch), 0, sin(pitch),
+           0, 1, 0,
+           -sin(pitch), 0, cos(pitch);
+
+    Eigen::Matrix3d  R_z;
+    R_z << cos(yaw), -sin(yaw), 0,
+           sin(yaw), cos(yaw), 0,
+           0, 0, 1;
+
+    // 전체 회전 행렬
+    return R_z * R_y * R_x;
+}
+
 // Pointer -> PointCloud2로 변경하는 함수
 void LiDAR_pre::Pub2Sensor(pcl::PointCloud<pcl::PointXYZI>::Ptr pcl_pointer)
 {
@@ -81,8 +107,16 @@ void LiDAR_pre::Pub2Sensor_utm(pcl::PointCloud<pcl::PointXYZI> pc2)
 
 void LiDAR_pre::cloud_callBack(const sensor_msgs::PointCloud2& msg)
 {
-   pcl_conversions::toPCL(msg, pcl_pc); // ROS -> PCLPointCloud2
-   pcl::fromPCLPointCloud2(pcl_pc, cloud_data); // PCLPointCloud2 -> PointXYZI
+    pcl::fromROSMsg(msg, cloud_data); // ROS 메시지를 PCL 포인트 클라우드로 변환
+
+    // 포인트 클라우드 변환
+    for (auto& point : cloud_data.points) {
+        Eigen::Vector3d p(point.x, point.y, point.z);
+        p = computeRotationMatrix(0, 10, 0) * p; // 회전 변환 적용
+        point.x = p(0);
+        point.y = p(1);
+        point.z = p(2);
+    }
 
    this->roi(); // 관심 영역 설정
    this->voxel(); // Down sampling(voxel) 실행

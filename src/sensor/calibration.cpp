@@ -49,7 +49,6 @@ void calibration::object_callBack(const morai_woowa::obj_info::ConstPtr& msg)
             xmin = msg->xmin;
             this->projection(frame);
         }
-        
     }
 }
 

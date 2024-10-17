@@ -6,6 +6,8 @@
 #include <tf2_ros/transform_listener.h>
 #include <tf2/transform_datatypes.h>
 
+#include <Eigen/Dense>
+
 #include <pcl/conversions.h>
 #include <pcl/point_cloud.h>
 #include <pcl/point_types.h>
@@ -55,6 +57,7 @@ public:
     void coord_transform();
     double euclideanDistance(const pcl::PointXYZI& point1, const pcl::PointXYZI& point2);
     void dbscan(double epsilon, int minPoints);
+    Eigen::Matrix3d computeRotationMatrix(double roll, double pitch, double yaw); // 회전행렬
 
     
 private:
