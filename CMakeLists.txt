@@ -31,6 +31,8 @@ find_package(PCL REQUIRED)
 add_message_files(
   FILES
   obj_info.msg
+  obj_info2.msg
+  obj_array.msg
 )
 
 add_service_files(
@@ -70,8 +72,10 @@ include_directories(
  ${PCL_INCLUDE_DIRS}
 )
 
-add_executable(sensor_main src/sensor/sensor_main.cpp src/sensor/calibration.cpp src/sensor/LiDAR_pre.cpp src/sensor/traffic.cpp)
+add_executable(sensor_main src/sensor/sensor_main.cpp src/sensor/calibration.cpp src/sensor/LiDAR_pre.cpp src/sensor/traffic.cpp src/sensor/calibration2.cpp)
 target_link_libraries(sensor_main ${catkin_LIBRARIES} ${OpenCV_LIBS} ${PCL_LIBRARIES})
+
+
 
 add_executable(person_action_node src/sensor/person_action_node.cpp)
 target_link_libraries(person_action_node ${catkin_LIBRARIES})
