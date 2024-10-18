@@ -1,9 +1,9 @@
 #include "Morai_Woowa/calibration2.h"
 
-calibration2::calibration(ros::NodeHandle& nh)
+calibration2::calibration2(ros::NodeHandle& nh)
 {
-    lidar_sub = nh.subscribe("lidar_pre", 1, &calibration::lidar_callBack, this);
-    object_sub = nh.subscribe("person", 1, &calibration::object_callBack, this);
+    lidar_sub = nh.subscribe("lidar_pre", 1, &calibration2::lidar_callBack, this);
+    object_sub = nh.subscribe("person", 1, &calibration2::object_callBack, this);
     lidar_pub = nh.advertise<geometry_msgs::Vector3>("lidar_coord", 10);
     min_distance = 987654321.0;    // 최소 거리 갱신
 
@@ -33,51 +33,34 @@ void calibration2::lidar_callBack(const sensor_msgs::PointCloud2ConstPtr& msg)
 }
 
 
-void calibration2::object_callBack(const morai_woowa::obj_info::ConstPtr& msg)
+void calibration2::object_callBack(const morai_woowa::obj_array::ConstPtr& msg)
 {
     last_image_time = msg->image.header.stamp; // 이미지 스탬프
 
     if ((last_image_time - last_lidar_time).toSec() < 0.01) { // 10ms 이내의 차이
             
         frame = cv::Mat(msg->image.height, msg->image.width, CV_8UC3, const_cast<unsigned char*>(msg->image.data.data()), msg->image.step);
+    
+        // BoundingBox를 저장할 벡터 선언
+        std::vector<BoundingBox> bounding_boxes;
 
-        if (msg->name == "person")
+        for(size_t i=0; i < msg->objects.size(); i++)
         {
-            ymax = msg->ymax;
-            ymin = msg->ymin;
-            xmax = msg->xmax;
-            xmin = msg->xmin;
-            this->projection(frame);
+            // 사람일때만 실행
+            if (msg->objects[i].name == "person")
+            {
+                BoundingBox box;
+                box.ymax = msg->objects[i].ymax;
+                box.ymin = msg->objects[i].ymin;
+                box.xmax = msg->objects[i].xmax;
+                box.xmin = msg->objects[i].xmin;
+                bounding_boxes.push_back(box);  // 박스 저장
+            }
         }
+
+        this->projection(frame, bounding_boxes);   // 투영
     }
 }
-
-cv::Mat_<double> calibration2::computeRotationMatrix(double roll, double pitch, double yaw) {
-    // 각도를 라디안으로 변환
-    roll *= M_PI / 180.0;
-    pitch *= M_PI / 180.0;
-    yaw *= M_PI / 180.0;
-
-    // 회전 행렬 계산
-    cv::Mat_<double> R_x(3, 3);
-    R_x << 1, 0, 0,
-           0, cos(roll), -sin(roll),
-           0, sin(roll), cos(roll);
-
-    cv::Mat_<double> R_y(3, 3);
-    R_y << cos(pitch), 0, sin(pitch),
-           0, 1, 0,
-           -sin(pitch), 0, cos(pitch);
-
-    cv::Mat_<double> R_z(3, 3);
-    R_z << cos(yaw), -sin(yaw), 0,
-           sin(yaw), cos(yaw), 0,
-           0, 0, 1;
-
-    // 전체 회전 행렬
-    return R_z * R_y * R_x;
-}
-
 
 void calibration2::do_cali()
 {
@@ -85,16 +68,13 @@ void calibration2::do_cali()
     cameraMatrix = (cv::Mat_<double>(3, 3) << fx, 0, cx,
                                             0,fy, cy,
                                             0, 0, 1);
-
     // 라이다 -> 카메라 좌표계로 일치시키는 행렬
     rvec = (cv::Mat_<double>(3, 3) << 0, 1, 0,
                                      0, 0, 1,
                                      -1, 0, 0);
 
-    rvec = rvec * this->computeRotationMatrix(0, 0, 0);
-
-
     tvec = (cv::Mat_<double>(3, 1) << lidar_x - camera_x, lidar_y - camera_y, lidar_z - camera_z); 
+    
     distCoeffs = cv::Mat::zeros(4, 1, CV_64F); // 왜곡 없음
 
     std::cout << "cameraMatrix: \n" << cameraMatrix << "\n\n";
@@ -104,7 +84,7 @@ void calibration2::do_cali()
 }
 
 
-void calibration2::projection(cv::Mat frame)
+void calibration2::projection(cv::Mat frame, std::vector<BoundingBox> bounding_boxes)
 {
     try{
         // lidar_points가 존재했을때 실행
@@ -122,8 +102,7 @@ void calibration2::projection(cv::Mat frame)
             
             std::map<int, std::vector<cv::Point3f>> classPoints;    // 클래스별 라이다 좌표 저장
 
-
-            for (size_t i=0; i < imagePoints.size(); i++)
+            for (size_t i = 0; i < imagePoints.size(); i++)
             {
                 const auto& imagePoint = imagePoints[i];
                 int x = static_cast<int>(imagePoint.x); // X 좌표
@@ -132,14 +111,17 @@ void calibration2::projection(cv::Mat frame)
                 // cv::circle(copy_frame, cv::Point(x, y), 3, cv::Scalar(0, 0, 255), -1); // 점 찍기
 
 
-                // 박스 안에 있을 때만 점 찍기
-                if ((xmin <= x) && (x <= xmax) && (ymin <= y) && (y <= ymax))
+                for(size_t j = 0; j < bounding_boxes.size(); j++)
                 {
-                    // 해당하는 픽셀 좌표의 LiDAR
-                    const auto& lidarPoint = lidar_points[i]; // 해당하는 Lidar Point
+                    // 박스 안에 있을 때만 점 찍기
+                    if ((bounding_boxes[j].xmin <= x) && (x <= bounding_boxes[j].xmax) && (bounding_boxes[j].ymin <= y) && (y <= bounding_boxes[j].ymax))
+                    {
+                        // 해당하는 픽셀 좌표의 LiDAR
+                        const auto& lidarPoint = lidar_points[i]; // 해당하는 Lidar Point
 
-                    int classId = static_cast<int>(intensity[i]); // intensity를 클래스 ID로 변환
-                    classPoints[classId].push_back(lidarPoint); // 라이다 좌표 저장
+                        int classId = static_cast<int>(intensity[i]); // intensity를 클래스 ID로 변환
+                        classPoints[classId].push_back(lidarPoint); // 라이다 좌표 저장
+                    }
                 }
             }
 

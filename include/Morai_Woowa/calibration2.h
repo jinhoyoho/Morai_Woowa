@@ -24,6 +24,14 @@
 #include <geometry_msgs/Vector3.h>  // Lidar 좌표를 publish
 
 
+// BoundingBox 구조체 정의
+struct BoundingBox {
+    int16_t xmin;
+    int16_t xmax;
+    int16_t ymin;
+    int16_t ymax;
+};
+
 class calibration2
 {
 private:
@@ -90,12 +98,12 @@ private:
     ros::Time last_lidar_time;  // 마지막으로 받은 라이다 시간
 
 public:
-    calibration(ros::NodeHandle& nh);  // 생성자
+    calibration2(ros::NodeHandle& nh);  // 생성자
     
     void lidar_callBack(const sensor_msgs::PointCloud2ConstPtr& msg); // Lidar 받기
-    void object_callBack(const morai_woowa::obj_info::ConstPtr& msg);
+    void object_callBack(const morai_woowa::obj_array::ConstPtr& msg);
     void do_cali();  // calibration 실행
-    void projection(cv::Mat frame); // 라이다 점을 이미지에 투영
+    void projection(cv::Mat frame, std::vector<BoundingBox> bounding_boxes); // 라이다 점을 이미지에 투영
 
     cv::Mat_<double> computeRotationMatrix(double roll, double pitch, double yaw);
 };

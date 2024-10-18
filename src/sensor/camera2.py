@@ -97,8 +97,8 @@ class IMGParser:
                     rospy.logwarn("Empty image copy. Skipping publishing.")
                     continue  # 이미지가 유효하지 않으면 건너뜀
 
-                # 이미지 저장
-                # array_msg.image = self.br.cv2_to_imgmsg(image_copy)
+                # 이미지는 한 번만 보내기
+                array_msg.image = self.br.cv2_to_imgmsg(image_copy)
 
                 # 배열과 이미지 보내기
                 self.obj_pub.publish(array_msg)
