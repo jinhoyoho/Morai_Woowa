@@ -5,6 +5,7 @@ calibration2::calibration2(ros::NodeHandle& nh)
     lidar_sub = nh.subscribe("lidar_pre", 1, &calibration2::lidar_callBack, this);
     object_sub = nh.subscribe("person", 1, &calibration2::object_callBack, this);
     lidar_pub = nh.advertise<geometry_msgs::Vector3>("lidar_coord", 10);
+    points_array_pub = nh.advertise<morai_woowa::average_points_array>("average_points",10);
     min_distance = 987654321.0;    // 최소 거리 갱신
 
     this->do_cali();
@@ -117,8 +118,9 @@ void calibration2::projection(cv::Mat frame, std::vector<BoundingBox> bounding_b
                     if ((bounding_boxes[j].xmin <= x) && (x <= bounding_boxes[j].xmax) && (bounding_boxes[j].ymin <= y) && (y <= bounding_boxes[j].ymax))
                     {
                         // 해당하는 픽셀 좌표의 LiDAR
-                        const auto& lidarPoint = lidar_points[i]; // 해당하는 Lidar Point
+                        cv::circle(frame, cv::Point(x, y), 3, cv::Scalar(0, 0, 255), -1); // 점 찍기
 
+                        const auto& lidarPoint = lidar_points[i]; // 해당하는 Lidar Point
                         int classId = static_cast<int>(intensity[i]); // intensity를 클래스 ID로 변환
                         classPoints[classId].push_back(lidarPoint); // 라이다 좌표 저장
                     }
@@ -129,10 +131,7 @@ void calibration2::projection(cv::Mat frame, std::vector<BoundingBox> bounding_b
             
             int minClassId = -1;
             min_distance = std::numeric_limits<double>::max(); // 무한대로 초기화
-            // 평균 좌표
-            double average_x;
-            double average_y;
-            double average_z;
+            morai_woowa::average_points_array msg;
             
             // 각 클래스에 대해 평균 거리 계산
             for (const auto& pair : classPoints) {
@@ -162,40 +161,15 @@ void calibration2::projection(cv::Mat frame, std::vector<BoundingBox> bounding_b
                                                     average.y * average.y + 
                                                     average.z * average.z);
 
-                // 가장 작은 평균 거리 업데이트
-                if (averageDistance < min_distance) {
-                    min_distance = averageDistance;
-                    minClassId = classId;
-                    average_x = average.x;
-                    average_y = average.y;
-                    average_z = average.z;
-                }
+                morai_woowa::average_points points_msg;
+                points_msg.average_x = average.x;
+                points_msg.average_y = average.y;
+                points_msg.average_z = average.z;
+                points_msg.distance = averageDistance;
+
+                msg.points_array.push_back(points_msg);
             }
-
-        
-            std::vector<cv::Point2f> imageProjections; // 이미지에 투영시킬 좌표
-
-            if (minClassId != -1) // -1이 아닐때 실행
-            {
-                cv::projectPoints(classPoints[minClassId], rvec, tvec, cameraMatrix, distCoeffs, imageProjections);
-
-                for(size_t i=0; i < imageProjections.size(); i++)
-                {
-                    const auto& imageProjection = imageProjections[i];
-                    int x = static_cast<int>(imageProjection.x);
-                    int y = static_cast<int>(imageProjection.y);
-
-                    cv::circle(frame, cv::Point(x, y), 3, cv::Scalar(0, 0, 255), -1); // 점 찍기
-                }
-                cv::imshow("Projection Image", frame);
-                if(cv::waitKey(10) == 27) exit(-1);
-
-                geometry_msgs::Vector3 vector_msg;
-                vector_msg.x = average_x;
-                vector_msg.y = average_y;
-                vector_msg.z = average_z;
-                lidar_pub.publish(vector_msg);
-            }
+            points_array_pub.publish(msg);  // average point publish
         }
     }
     catch (cv_bridge::Exception& e)

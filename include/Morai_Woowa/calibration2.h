@@ -20,6 +20,8 @@
 
 #include "morai_woowa/obj_info2.h"
 #include "morai_woowa/obj_array.h"
+#include "morai_woowa/average_points.h"
+#include "morai_woowa/average_points_array.h"
 
 #include <geometry_msgs/Vector3.h>  // Lidar 좌표를 publish
 
@@ -38,6 +40,7 @@ private:
     ros::Subscriber lidar_sub;  // Lidar Pre를 받음
     ros::Subscriber object_sub; // detect한 이미지 사각형의 x, y와 이미지를 전달
     ros::Publisher lidar_pub;   // Lidar 좌표 publish
+    ros::Publisher points_array_pub;
     
     cv::Mat frame;  // 이미지
     
