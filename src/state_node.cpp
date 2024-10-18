@@ -504,6 +504,8 @@ public:
         morai_woowa::Person_Collision_ActGoal collision_goal;
         collision_goal.range = range; 
 
+        std::cout << "asdfasdfsd";
+
         person_collision_ac_.sendGoal(collision_goal,
                     boost::bind(&StateNode::PersonCollisionActionDoneCb, this, boost::placeholders::_1, boost::placeholders::_2),
                     boost::bind(&StateNode::PersonCollisionActionActiveCb, this),
@@ -638,22 +640,22 @@ public:
         ros::Rate rate(20);  // 0.01 Hz
         while (ros::ok()) {
 
-            int starting_point1 = 0;
-            int arrivel_point1 = 1;
-            bool is_indoor1 = true;
-            // starting_point에서 arrival_point로 가라(실내/실외)
-            // return: (int) arrival point (1번~5번) 지점
-            // 실패하면 0 반환
-            request_planning(starting_point1, arrivel_point1, is_indoor1);
+            // int starting_point1 = 0;
+            // int arrivel_point1 = 1;
+            // bool is_indoor1 = true;
+            // // starting_point에서 arrival_point로 가라(실내/실외)
+            // // return: (int) arrival point (1번~5번) 지점
+            // // 실패하면 0 반환
+            // request_planning(starting_point1, arrivel_point1, is_indoor1);
 
-            int starting_point2 = 0;
-            int arrivel_point2 = 1;
-            bool is_indoor2 = true;
-            float detect_range1 = 10.0;
-            // 돌아가면서 박을 수 있으면 박자 -> 제어권 넘김
-            request_planning_with_collision(starting_point2, arrivel_point2, is_indoor2, detect_range1);            
+            // int starting_point2 = 0;
+            // int arrivel_point2 = 1;
+            // bool is_indoor2 = true;
+            // float detect_range1 = 10.0;
+            // // 돌아가면서 박을 수 있으면 박자 -> 제어권 넘김
+            // request_planning_with_collision(starting_point2, arrivel_point2, is_indoor2, detect_range1);            
 
-            float detect_range2 = 10.0;
+            float detect_range2 = 16.0;
             // 사람에 부딪혀라 -> 안 쓸것같음
             request_collision_to_person(detect_range2);
 
@@ -661,22 +663,22 @@ public:
             // 실내 respawn 지점으로 이동했는지 안 했는지 -> 이중체크 용도
             check_teleport_success(teleport_point);
 
-            int arrival_point = 3;
-            bool is_indoor = 3;
-            check_arrival_success(arrival_point, is_indoor);
+            // int arrival_point = 3;
+            // bool is_indoor = 3;
+            // check_arrival_success(arrival_point, is_indoor);
 
-            // 완전히 정지한 상태로 픽업 및 배달
-            // n번에서 픽업하면 '무조건' n번으로 배달
-            int item_index1 = 1;
-            // delivery
-            delivery(item_index1);
+            // // 완전히 정지한 상태로 픽업 및 배달
+            // // n번에서 픽업하면 '무조건' n번으로 배달
+            // int item_index1 = 1;
+            // // delivery
+            // delivery(item_index1);
 
-            int item_index2 = 1;
-            // pickup
-            pickup(item_index2);
+            // int item_index2 = 1;
+            // // pickup
+            // pickup(item_index2);
 
-            // request planning 문자열 조합, state에서 publish, 확인용
-            PublishWaypoints(waypoints_);
+            // // request planning 문자열 조합, state에서 publish, 확인용
+            // PublishWaypoints(waypoints_);
             
             rate.sleep();  // 지정된 주기로 대기
         }
@@ -724,14 +726,12 @@ int main(int argc, char** argv) {
     StateNode StateNode;
 
     path waypoints;
-    StateNode.loadWaypoints("/path/to/waypoints.csv", waypoints);
-    StateNode.PublishWaypoints(waypoints);
 
-    // std::thread thread(&StateNode::state, &StateNode);
+    std::thread thread(&StateNode::state, &StateNode);
 
     ros::spin();
     
-    // thread.join();  
+    thread.join();  
 
     return 0;
 }

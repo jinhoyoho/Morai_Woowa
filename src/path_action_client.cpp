@@ -43,7 +43,7 @@ int main(int argc, char** argv)
   ac.sendGoal(goal, &doneCb, &activeCb, &feedbackCb);
 
   // 목표가 완료될 때까지 기다림
-  bool finished_before_timeout = ac.waitForResult(ros::Duration(30.0));
+  bool finished_before_timeout = ac.waitForResult(ros::Duration(999999.0));
 
   if (finished_before_timeout) {
     ROS_INFO("Action finished successfully.");
