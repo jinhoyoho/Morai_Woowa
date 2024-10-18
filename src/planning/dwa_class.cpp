@@ -161,15 +161,20 @@ public:
             idx = closet_idx;
         }
         
-        std::vector<std::vector<double>> sliced(global_path_ptr->begin()+idx, global_path_ptr->end());
+        std::vector<std::vector<double>> sliced(global_path_ptr->begin()+closet_idx, global_path_ptr->end());
 
         if(sliced.size() > predict_time * 10){
             sliced.resize(predict_time * 10);
         }
 
-        feedback.feedback.progress_percentage = sliced.size() / global_path_ptr->size();
+        std::cout<<'sl'<<closet_idx<<std::endl;
+        std::cout<<'gp'<<global_path_ptr->size()<<std::endl;
+        
+        feedback.feedback.progress_percentage = closet_idx / global_path_ptr->size();
 
-        *global_path_ptr = sliced;
+        cout<<feedback.feedback.progress_percentage<<endl;
+
+        *remain_global_path_ptr = sliced;
     }
 
     double calculateDistance(const std::vector<double>& point1, const std::vector<double>& point2) {
@@ -187,13 +192,13 @@ public:
         candidate_path_ptr->clear();
         candidate_path_ptr->reserve((num_of_path + 1));
 
-        candidate_path_ptr->push_back(*global_path_ptr);
+        candidate_path_ptr->push_back(*remain_global_path_ptr);
 
         for(int i = 0; i < num_of_path; i++){
             std::vector<std::vector<double>> candidate_i;
-            candidate_i.reserve(global_path_ptr->size());
+            candidate_i.reserve(remain_global_path_ptr->size());
             auto current_angular_velocity = angular_velocity - av_gap * i ;
-            for(int j = 0; j < global_path_ptr->size(); j++){
+            for(int j = 0; j < remain_global_path_ptr->size(); j++){
                 auto time = j * 0.1;
                 std::vector<double> candidate_element = {pose_ptr->at(0) + velocity * time * std::cos(current_angular_velocity * time + pose_ptr->at(2)), pose_ptr->at(1) + velocity * time * std::sin(current_angular_velocity * time + pose_ptr->at(2)), 0.0};
                 candidate_i.push_back(candidate_element); 
@@ -209,15 +214,16 @@ public:
 
         //obstacle이 하나도 없을때
         if(!cloud_ptr){
-            future_obstacle_ptr->clear();
-            future_obstacle_ptr->resize(cloud_ptr->size());
             president_path_ptr->clear();
-            for(int j = 0; j < global_path_ptr->size(); j++){
+            for(int j = 0; j < remain_global_path_ptr->size(); j++){
                 president_path_ptr->push_back(candidate_path_ptr->at(0).at(j));
             }
         }
 
         else{
+            future_obstacle_ptr->clear();
+            future_obstacle_ptr->resize(cloud_ptr->size());
+
             for(int path_idx =0; path_idx < num_of_path + 1; path_idx++){
                 double current_cost = 0.0;
                 auto current_candidate = candidate_path_ptr->at(path_idx);
@@ -239,7 +245,7 @@ public:
                     }
 
                     // path cost
-                    auto distance = calculateDistance(current_candidate.at(current_time_idx), global_path_ptr->at(current_time_idx));
+                    auto distance = calculateDistance(current_candidate.at(current_time_idx), remain_global_path_ptr->at(current_time_idx));
                     current_cost += global_path_cost * std::pow(distance, 1);
                     }
 
@@ -260,7 +266,7 @@ public:
             }
             //best path를 president에 복사
             president_path_ptr->clear();
-            for(int j = 0; j < global_path_ptr->size(); j++){
+            for(int j = 0; j < remain_global_path_ptr->size(); j++){
                 president_path_ptr->push_back(candidate_path_ptr->at(best_idx).at(j));
             }
         }
@@ -343,6 +349,7 @@ private:
     morai_woowa::Planning_Tracking_ActActionResult result;
     morai_woowa::Planning_Tracking_ActActionFeedback feedback;
     shared_ptr<vector<vector<double>>> global_path_ptr = make_shared<vector<vector<double>>>();
+    shared_ptr<vector<vector<double>>> remain_global_path_ptr = make_shared<vector<vector<double>>>();
     shared_ptr<vector<vector<vector<double>>>> candidate_path_ptr = make_shared<vector<vector<vector<double>>>>();
     shared_ptr<vector<vector<double>>> president_path_ptr = make_shared<vector<vector<double>>>();
     shared_ptr<vector<double>> pose_ptr = make_shared<vector<double>>(3);

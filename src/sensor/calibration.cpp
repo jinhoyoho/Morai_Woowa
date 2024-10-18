@@ -91,7 +91,7 @@ void calibration::do_cali()
                                      0, 0, 1,
                                      -1, 0, 0);
 
-    rvec = rvec * this->computeRotationMatrix(0, 0, 0);
+    rvec = rvec * this->computeRotationMatrix(0, 10, 0);
 
 
     tvec = (cv::Mat_<double>(3, 1) << lidar_x - camera_x, lidar_y - camera_y, lidar_z - camera_z); 
