@@ -135,3 +135,8 @@ target_link_libraries(path_tracking ${catkin_LIBRARIES})
 
 add_executable(dynamic_planning src/planning/dynamic_planning.cpp)
 target_link_libraries(dynamic_planning ${catkin_LIBRARIES})
+
+add_executable(control_node src/control_node.cpp)
+target_link_libraries(control_node ${catkin_LIBRARIES})
+
+
