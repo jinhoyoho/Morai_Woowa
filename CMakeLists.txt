@@ -33,6 +33,8 @@ add_message_files(
   obj_info.msg
   obj_info2.msg
   obj_array.msg
+  average_points.msg
+  average_points_array.msg
 )
 
 add_service_files(

@@ -7,6 +7,8 @@
 #include <vector>
 #include <unordered_map>
 #include <cmath>
+#include <deque>  
+#include <algorithm> 
 
 #include <image_transport/image_transport.h>
 #include <opencv2/highgui/highgui.hpp>
@@ -20,6 +22,8 @@
 
 #include "morai_woowa/obj_info2.h"
 #include "morai_woowa/obj_array.h"
+#include "morai_woowa/average_points.h"
+#include "morai_woowa/average_points_array.h"
 
 #include <geometry_msgs/Vector3.h>  // Lidar 좌표를 publish
 
@@ -38,6 +42,7 @@ private:
     ros::Subscriber lidar_sub;  // Lidar Pre를 받음
     ros::Subscriber object_sub; // detect한 이미지 사각형의 x, y와 이미지를 전달
     ros::Publisher lidar_pub;   // Lidar 좌표 publish
+    ros::Publisher points_array_pub;
     
     cv::Mat frame;  // 이미지
     
@@ -51,7 +56,7 @@ private:
     int ymin;
     int ymax;
     
-    std::vector<cv::Point3f> lidar_points;   // 라이다
+    std::map<int, std::vector<cv::Point3f>> lidar_points;   // 라이다
     cv::Mat cameraMatrix;   // 카메라 내부 파라미터
     cv::Mat rvec;   // 회전 행렬
     cv::Mat tvec;   // 이동 벡터
@@ -96,6 +101,8 @@ private:
     // timeStamp 맞추기
     ros::Time last_image_time;  // 마지막으로 받은 이미지 시간
     ros::Time last_lidar_time;  // 마지막으로 받은 라이다 시간
+
+    std::deque<morai_woowa::obj_array::ConstPtr> img_msg_queue; // msg 큐
 
 public:
     calibration2(ros::NodeHandle& nh);  // 생성자
