@@ -23,9 +23,11 @@ public:
     double calculateCurvature();
     void controlLoop();
     void Brake();
+    void TurnLeft90();
 
 
 private:
+    bool isWaypointBehind(double wx, double wy);
     ros::Publisher ctrl_cmd_pub_;
     
     ros::Subscriber gpath_sub_;     // 경로 서브스크라이버
@@ -43,6 +45,8 @@ private:
     double lfd;
     double steering;
     bool is_look_forward_point;
+    bool has_turned_left_90;
+     bool at_goal;
     ros::Time previous_time;
     double previous_heading;
 };
