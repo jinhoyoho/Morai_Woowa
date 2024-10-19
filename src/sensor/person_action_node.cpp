@@ -84,10 +84,10 @@ void person_action_node::execute(const morai_woowa::Person_Collision_ActGoalCons
         if(is_target){
             double angle_rad = atan2(closest_person_.y, closest_person_.x);
             
-            float ANG_VEL = 0.3 + 0.3*( fabs(angle_rad) / (M_PI*60/180) );
+            float ANG_VEL = 0.2; // + 0.3*( fabs(angle_rad) / (M_PI*60/180) );
             
             ang_vel = angle_rad > 0 ? -ANG_VEL : ANG_VEL;
-            lin_vel = LIN_VEL;
+            lin_vel = LIN_VEL-2;
             
             ctrl_cmd.cmd_type = 3;
             ctrl_cmd.Target_linear_velocity = lin_vel;
