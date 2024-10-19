@@ -24,7 +24,7 @@
 #include <pcl/filters/extract_indices.h>
 #include <pcl/ModelCoefficients.h>
 
-#define EPSILON 1
+#define EPSILON 0.5
 #define MIN_POINTS 3
 
 class LiDAR_pre
@@ -39,9 +39,9 @@ public:
 
     // overload
     // Pointer를 Sensor msgs로 바꾸는 함수
-    void Pub2Sensor(pcl::PointCloud<pcl::PointXYZI>::Ptr pcl_pointer);
+    void Pub2Sensor(pcl::PointCloud<pcl::PointXYZI>::Ptr pcl_pointer, ros::Time t);
     // PC2를 Sensor msgs로 바꾸는 함수
-    void Pub2Sensor(pcl::PointCloud<pcl::PointXYZI> pc2);
+    void Pub2Sensor(pcl::PointCloud<pcl::PointXYZI> pc2, ros::Time t);
 
     // Pointer를 Sensor msgs로 바꾸는 함수
     void Pub2Sensor_utm(pcl::PointCloud<pcl::PointXYZI>::Ptr pcl_pointer);

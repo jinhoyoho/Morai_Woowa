@@ -24,8 +24,11 @@ class Dwa{
 public:
     Dwa()
         :as(nh, "planning_tracking", boost::bind(&Dwa::executeAction, this, _1), false){
+            
             candidate_pub = nh.advertise<sensor_msgs::PointCloud>("/candidate_path", 10);
             lpath_pub = nh.advertise<nav_msgs::Path>("lpath", 10);
+            gpath_pub = nh.advertise<nav_msgs::Path>("gpath", 10);
+
             obstacle_sub = nh.subscribe("obstacle", 10, &Dwa::obstacle_callback, this);
             pose_sub = nh.subscribe("current_pose", 10, &Dwa::pose_callback, this);
 
@@ -41,24 +44,30 @@ public:
 
         //성공할 때 까지 반복
         while(result.result.success == false){
-
+            auto start = ros::Time::now();
             ros::spinOnce();
-
+            cout<<"size"<<global_path_ptr->size()<<endl;
             //내 위치 기준으로 앞으로 갈 path만 자르기
             gpath_cut();
+            cout<<"gpc"<<ros::Time::now()-start<<endl;
+             start = ros::Time::now();
 
             //후보경로 생성
             make_candidate_path();
-
+            cout<<"mcp"<<ros::Time::now()-start<<endl;
+             start = ros::Time::now();
             //cost 계산하기
             vote_president_path();
-
+            cout<<"vpp"<<ros::Time::now()-start<<endl;
+             start = ros::Time::now();
             //msg형식으로 만들어서 publish
             msgs_publish();
-
+            cout<<"mp"<<ros::Time::now()-start<<endl;
+             start = ros::Time::now();
             //progress 계산 후 action 처리
             feedback_publish();
-
+            cout<<"fp"<<ros::Time::now()-start<<endl;
+             start = ros::Time::now();
             rate.sleep();
         }
     }
@@ -72,8 +81,8 @@ public:
         pose_ptr->resize(3);
 
         // Extract position
-        pose_ptr->at(0) = msg->pose.position.x;
-        pose_ptr->at(1) = msg->pose.position.y;
+        (*pose_ptr)[0] = msg->pose.position.x;
+        (*pose_ptr)[1] = msg->pose.position.y;
 
         // Extract orientation (quaternion)
         double qx = msg->pose.orientation.x;
@@ -87,7 +96,7 @@ public:
         double roll, pitch, yaw;
         m.getRPY(roll, pitch, yaw);
 
-        pose_ptr->at(2) = yaw; 
+        (*pose_ptr)[2] = yaw; 
     }
 
     void load_path(std::string path_name, bool is_reverse){
@@ -148,9 +157,10 @@ public:
         int closet_idx = -1;
         double closet_dis = 9999;
         for (int i=0; i< global_path_ptr->size(); i++){
-            auto g_x = global_path_ptr->at(global_path_ptr->size() - i -1).at(0);
-            auto g_y = global_path_ptr->at(global_path_ptr->size() - i -1).at(1);
-            auto dis = calculateDistance({g_x, g_y, 0.0}, {pose_ptr->at(0), pose_ptr->at(1), 0.0});
+            auto k = (*global_path_ptr)[global_path_ptr->size() - i -1];
+            auto g_x = (*global_path_ptr)[global_path_ptr->size() - i -1][0];
+            auto g_y = (*global_path_ptr)[global_path_ptr->size() - i -1][1];
+            auto dis = calculateDistance({g_x, g_y, 0.0}, {(*pose_ptr)[0] , (*pose_ptr)[1] , 0.0});
             if(dis < closet_dis){
                 closet_dis = dis;
                 closet_idx = global_path_ptr->size() - i -1;
@@ -161,15 +171,20 @@ public:
             idx = closet_idx;
         }
         
-        std::vector<std::vector<double>> sliced(global_path_ptr->begin()+idx, global_path_ptr->end());
+        std::vector<std::vector<double>> sliced(global_path_ptr->begin()+closet_idx, global_path_ptr->end());
 
         if(sliced.size() > predict_time * 10){
             sliced.resize(predict_time * 10);
         }
 
-        feedback.feedback.progress_percentage = sliced.size() / global_path_ptr->size();
 
-        *global_path_ptr = sliced;
+        float progress = (float)closet_idx / (float)global_path_ptr->size();
+        
+        feedback.feedback.progress_percentage = progress;
+
+        cout<<"progress"<<feedback.feedback.progress_percentage<<endl;
+
+        *remain_global_path_ptr = sliced;
     }
 
     double calculateDistance(const std::vector<double>& point1, const std::vector<double>& point2) {
@@ -187,15 +202,16 @@ public:
         candidate_path_ptr->clear();
         candidate_path_ptr->reserve((num_of_path + 1));
 
-        candidate_path_ptr->push_back(*global_path_ptr);
+        candidate_path_ptr->push_back(*remain_global_path_ptr);
 
         for(int i = 0; i < num_of_path; i++){
+
             std::vector<std::vector<double>> candidate_i;
-            candidate_i.reserve(global_path_ptr->size());
+            candidate_i.reserve(remain_global_path_ptr->size());
             auto current_angular_velocity = angular_velocity - av_gap * i ;
-            for(int j = 0; j < global_path_ptr->size(); j++){
+            for(int j = 0; j < remain_global_path_ptr->size(); j++){
                 auto time = j * 0.1;
-                std::vector<double> candidate_element = {pose_ptr->at(0) + velocity * time * std::cos(current_angular_velocity * time + pose_ptr->at(2)), pose_ptr->at(1) + velocity * time * std::sin(current_angular_velocity * time + pose_ptr->at(2)), 0.0};
+                std::vector<double> candidate_element = {(*pose_ptr)[0] + velocity * time * std::cos(current_angular_velocity * time + (*pose_ptr)[2] ), (*pose_ptr)[1]  + velocity * time * std::sin(current_angular_velocity * time + (*pose_ptr)[2] ), 0.0};
                 candidate_i.push_back(candidate_element); 
             }
             candidate_path_ptr->push_back(candidate_i); 
@@ -209,40 +225,40 @@ public:
 
         //obstacle이 하나도 없을때
         if(!cloud_ptr){
-            future_obstacle_ptr->clear();
-            future_obstacle_ptr->resize(cloud_ptr->size());
             president_path_ptr->clear();
-            for(int j = 0; j < global_path_ptr->size(); j++){
-                president_path_ptr->push_back(candidate_path_ptr->at(0).at(j));
+            for(int j = 0; j < remain_global_path_ptr->size(); j++){
+                president_path_ptr->push_back((*candidate_path_ptr)[0][j]);
             }
         }
 
         else{
+            future_obstacle_ptr->clear();
+            future_obstacle_ptr->resize(cloud_ptr->size());
+
             for(int path_idx =0; path_idx < num_of_path + 1; path_idx++){
                 double current_cost = 0.0;
-                auto current_candidate = candidate_path_ptr->at(path_idx);
+                auto current_candidate = (*candidate_path_ptr)[path_idx];
 
                 for(int current_time_idx = 0; current_time_idx < current_candidate.size(); current_time_idx++){
                     auto current_time = current_time_idx * 0.1;
                     // obstacle cost 모든 장애물에 대해 미래 위치를 계산한다.
                     for( int k = 0 ; k < cloud_ptr->size(); k++){
-                        future_obstacle_ptr->at(k).resize(3);
+                        (*future_obstacle_ptr)[k].resize(3);
                         //z는 x축 속도정보, intensity는 y축 속도정보
-                        future_obstacle_ptr->at(k).at(0) = cloud_ptr->at(k).x + cloud_ptr->at(k).z * current_time;
-                        future_obstacle_ptr->at(k).at(1) = cloud_ptr->at(k).y + cloud_ptr->at(k).intensity * current_time;
-                        future_obstacle_ptr->at(k).at(2) = 0.0;
+                        (*future_obstacle_ptr)[k][0] = (*cloud_ptr)[k].x + (*cloud_ptr)[k].z * current_time;
+                        (*future_obstacle_ptr)[k][1] = (*cloud_ptr)[k].y + (*cloud_ptr)[k].intensity * current_time;
+                        (*future_obstacle_ptr)[k][2] = 0.0;
 
-                        auto distance = calculateDistance(current_candidate.at(current_time_idx), future_obstacle_ptr->at(k));
+                        auto distance = calculateDistance(current_candidate[current_time_idx], (*future_obstacle_ptr)[k]);
                         if(distance < 1.5){
                             current_cost += 9999;
                         }
                     }
 
                     // path cost
-                    auto distance = calculateDistance(current_candidate.at(current_time_idx), global_path_ptr->at(current_time_idx));
+                    auto distance = calculateDistance(current_candidate[current_time_idx], (*remain_global_path_ptr)[current_time_idx]);
                     current_cost += global_path_cost * std::pow(distance, 1);
                     }
-
 
 
                 std::cout<<path_idx<<" cost: "<<current_cost<<std::endl;
@@ -260,8 +276,8 @@ public:
             }
             //best path를 president에 복사
             president_path_ptr->clear();
-            for(int j = 0; j < global_path_ptr->size(); j++){
-                president_path_ptr->push_back(candidate_path_ptr->at(best_idx).at(j));
+            for(int j = 0; j < remain_global_path_ptr->size(); j++){
+                president_path_ptr->push_back((*candidate_path_ptr)[best_idx][j]);
             }
         }
 
@@ -270,16 +286,17 @@ public:
     void msgs_publish(){
         //초기화
         lpath_msg_ptr->poses.clear();
-        candidate_msg_ptr->points.clear();
+        gpath_msg_ptr->poses.clear();
+        candidate_msg_ptr->points.clear(); 
 
         // 후보 경로 (candidate_path_ptr) 처리
         for(int i = 0; i < candidate_path_ptr->size(); i++){
-            auto candidate_i = candidate_path_ptr->at(i);
+            auto candidate_i = (*candidate_path_ptr)[i];
             for(int j = 0; j < candidate_i.size(); j++){
-                auto element = candidate_i.at(j);
+                auto element = candidate_i[j];
                 geometry_msgs::Point32 point;
-                point.x = element.at(0);
-                point.y = element.at(1);
+                point.x = element[0];
+                point.y = element[1];
                 point.z = 0.0;
                 candidate_msg_ptr->points.push_back(point);
             }
@@ -288,15 +305,16 @@ public:
 
         //  nav_msgs::Path로 변환
         for(int j = 0; j < president_path_ptr->size(); j++){
-            auto element = president_path_ptr->at(j);
+            auto element = (*president_path_ptr)[j];
+            
             
             geometry_msgs::PoseStamped pose_stamped;
             pose_stamped.header.frame_id = "map";  // frame_id 설정
             pose_stamped.header.stamp = ros::Time::now();  // 현재 시간
 
             // 위치 설정
-            pose_stamped.pose.position.x = element.at(0);
-            pose_stamped.pose.position.y = element.at(1);
+            pose_stamped.pose.position.x = element[0];
+            pose_stamped.pose.position.y = element[1];
             pose_stamped.pose.position.z = 0.0;
 
             // 방향 (orientation)은 기본적으로 단위 쿼터니언 사용
@@ -309,17 +327,46 @@ public:
             lpath_msg_ptr->poses.push_back(pose_stamped);
         }
 
+        for(int j = 0; j < global_path_ptr->size(); j++){
+            auto element = (*global_path_ptr)[j];
+            
+            geometry_msgs::PoseStamped pose_stamped;
+            pose_stamped.header.frame_id = "map";  // frame_id 설정
+            pose_stamped.header.stamp = ros::Time::now();  // 현재 시간
+
+            // 위치 설정
+            pose_stamped.pose.position.x = element[0];
+            pose_stamped.pose.position.y = element[1];
+            pose_stamped.pose.position.z = 0.0;
+
+            // 방향 (orientation)은 기본적으로 단위 쿼터니언 사용
+            pose_stamped.pose.orientation.x = 0.0;
+            pose_stamped.pose.orientation.y = 0.0;
+            pose_stamped.pose.orientation.z = 0.0;
+            pose_stamped.pose.orientation.w = 1.0;
+
+            // 대통령 경로에 추가
+            gpath_msg_ptr->poses.push_back(pose_stamped);
+        }
+
         // president_msg_ptr의 헤더 설정
         lpath_msg_ptr->header.frame_id = "map";
         lpath_msg_ptr->header.stamp = ros::Time::now();
 
+        gpath_msg_ptr->header.frame_id = "map";
+        gpath_msg_ptr->header.stamp = ros::Time::now();
+        
+        cout<<"lp"<<lpath_msg_ptr->poses.size()<<endl;
+        cout<<"gp"<<gpath_msg_ptr->poses.size()<<endl;
+        cout<<"cp"<<candidate_msg_ptr->points.size()<<endl;
         lpath_pub.publish(*lpath_msg_ptr);
+        gpath_pub.publish(*gpath_msg_ptr);
         candidate_pub.publish(*candidate_msg_ptr);
     }
 
     void feedback_publish(){
         as.publishFeedback(feedback.feedback);
-        if(feedback.feedback.progress_percentage > 0.95){
+        if(feedback.feedback.progress_percentage > 0.99){
             result.result.success = true;
             as.setSucceeded(result.result);
         }
@@ -331,6 +378,7 @@ private:
     ros::Publisher candidate_pub;
     ros::Publisher lpath_pub;
     ros::Subscriber obstacle_sub;
+    ros::Publisher gpath_pub;
     ros::Subscriber pose_sub;
     
     int num_of_path = 15;
@@ -343,6 +391,7 @@ private:
     morai_woowa::Planning_Tracking_ActActionResult result;
     morai_woowa::Planning_Tracking_ActActionFeedback feedback;
     shared_ptr<vector<vector<double>>> global_path_ptr = make_shared<vector<vector<double>>>();
+    shared_ptr<vector<vector<double>>> remain_global_path_ptr = make_shared<vector<vector<double>>>();
     shared_ptr<vector<vector<vector<double>>>> candidate_path_ptr = make_shared<vector<vector<vector<double>>>>();
     shared_ptr<vector<vector<double>>> president_path_ptr = make_shared<vector<vector<double>>>();
     shared_ptr<vector<double>> pose_ptr = make_shared<vector<double>>(3);
@@ -350,6 +399,7 @@ private:
     shared_ptr<vector<vector<double>>> future_obstacle_ptr = make_shared<vector<vector<double>>>();
     shared_ptr<sensor_msgs::PointCloud> candidate_msg_ptr = make_shared<sensor_msgs::PointCloud>();
     shared_ptr<nav_msgs::Path> lpath_msg_ptr = make_shared<nav_msgs::Path>();
+    shared_ptr<nav_msgs::Path> gpath_msg_ptr = make_shared<nav_msgs::Path>();
 };
 
 int main(int argc, char** argv){

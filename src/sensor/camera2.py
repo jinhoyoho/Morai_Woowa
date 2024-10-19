@@ -19,6 +19,7 @@ class IMGParser:
         self.traffic_image_pub = rospy.Publisher('traffic_image', Image, queue_size=10)
         self.obj_pub = rospy.Publisher('person', obj_array, queue_size=10)
         self.is_image = False
+        self.img_stamp = 0
         self.br = CvBridge()
 
         # file의 directory 경로
@@ -36,14 +37,16 @@ class IMGParser:
             if not self.is_image:
                 print("[1] can't subscribe '/image_jpeg/compressed' topic... \n    please check your Camera sensor connection")
             else:  # 센서 연결 시
+                array_msg = obj_array() # 배열 선언
+
+                array_msg.header.stamp = self.img_stamp
+
                 results = model(self.img_bgr)
 
                 image_copy = self.img_bgr.copy()
 
                 # object_detection 결과가 boxes에 담긴다
                 boxes = results[0].boxes.cpu().numpy().data
-
-                array_msg = obj_array() # 배열 선언
 
                 for box in boxes:
                     
@@ -113,6 +116,7 @@ class IMGParser:
 
 
     def callback(self, msg):
+        self.img_stamp = msg.header.stamp
         self.is_image = True
         np_arr = np.frombuffer(msg.data, np.uint8) # msg를 uint8 형태로 변환
         self.img_bgr = cv2.imdecode(np_arr, cv2.IMREAD_COLOR) # 3차원 (rgb)형태로 전환

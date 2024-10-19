@@ -39,7 +39,7 @@ Eigen::Matrix3d LiDAR_pre::computeRotationMatrix(double roll, double pitch, doub
 }
 
 // Pointer -> PointCloud2로 변경하는 함수
-void LiDAR_pre::Pub2Sensor(pcl::PointCloud<pcl::PointXYZI>::Ptr pcl_pointer)
+void LiDAR_pre::Pub2Sensor(pcl::PointCloud<pcl::PointXYZI>::Ptr pcl_pointer, ros::Time t)
 {
     pcl::PCLPointCloud2 pcl_pc_filtered;
 
@@ -50,13 +50,13 @@ void LiDAR_pre::Pub2Sensor(pcl::PointCloud<pcl::PointXYZI>::Ptr pcl_pointer)
     pcl_conversions::fromPCL(pcl_pc_filtered, output);
 
     output.header.frame_id = "map";
-    output.header.stamp = ros::Time::now();
+    output.header.stamp = t;//ros::Time::now();
 
     pub.publish(output);
 }
 
 // 포인트 클라우드를 ROS 메시지로 변환하여 발행
-void LiDAR_pre::Pub2Sensor(pcl::PointCloud<pcl::PointXYZI> pc2)
+void LiDAR_pre::Pub2Sensor(pcl::PointCloud<pcl::PointXYZI> pc2, ros::Time t)
 {
     pcl::PCLPointCloud2 pcl_pc_filtered;
 
@@ -67,7 +67,7 @@ void LiDAR_pre::Pub2Sensor(pcl::PointCloud<pcl::PointXYZI> pc2)
     pcl_conversions::fromPCL(pcl_pc_filtered, output);
 
     output.header.frame_id = "map";
-    output.header.stamp = ros::Time::now();
+    output.header.stamp = t;//ros::Time::now();
 
     pub.publish(output);
 }
@@ -125,7 +125,7 @@ void LiDAR_pre::cloud_callBack(const sensor_msgs::PointCloud2& msg)
     }
 
 
-   Pub2Sensor(cloud_data);
+   Pub2Sensor(cloud_data, msg.header.stamp);
 
    this->coord_transform();
 

@@ -9,9 +9,13 @@
 PurePursuitController::PurePursuitController(ros::NodeHandle& nh) :
     wheel_base(3.9), lfd(2.0), steering(0), is_look_forward_point(false),
     current_linear_vel(0.0), current_angular_vel(0.0), vehicle_yaw(0.0),
+<<<<<<< HEAD
     previous_time(ros::Time(0)), previous_heading(0.0), is_rotating_(false), target_heading_(0.0),
     current_waypoint_idx_(0), wpt_init_flag_(false), has_turned_left_(false),
     current_state_(FOLLOW_PATH)
+=======
+    previous_time(ros::Time(0)), previous_heading(0.0), has_turned_left_90(false)
+>>>>>>> e34b73addc2cb4d431b92c16cad1739c58554f87
 {
     // Subscriber 초기화
     gpath_sub_ = nh.subscribe("/gpath", 10, &PurePursuitController::publishPath, this);  // Waypoint 구독
@@ -158,18 +162,30 @@ double PurePursuitController::calculateCurvature() {
     double y3 = waypoint_path[idx + 2].y;
 
     // 3, 4, 5번째 웨이포인트가 로봇 뒤에 있는지 확인
+<<<<<<< HEAD
     if (!has_turned_left_ && (isWaypointBehind(x3, y3) || isWaypointBehind(x2, y2) || isWaypointBehind(x1, y1))) {
         current_state_ = TURN_LEFT_90;
         ROS_INFO("Detected waypoints behind the robot. Switching to TURN_LEFT_90 state.");
     }
 
     // 곡률 계산 (kappa)
+=======
+    if (!has_turned_left_90 && isWaypointBehind(x3, y3) || isWaypointBehind(x2, y2) || isWaypointBehind(x1, y1)) {
+        has_turned_left_90 = true;
+        //ROS_INFO("Turned Left 90 degrees to adjust for waypoints behind the robot.");
+    }
+
+    // 곡률 계산
+>>>>>>> e34b73addc2cb4d431b92c16cad1739c58554f87
     double kappa = fabs((x2 - x1)*(y3 - y1) - (y2 - y1)*(x3 - x1)) /
                    (pow((x2 - x1)*(x2 - x1) + (y2 - y1)*(y2 - y1), 1.5) + 1e-6);
     return kappa;
 }
 
+<<<<<<< HEAD
 // 웨이포인트가 로봇 뒤에 있는지 확인하는 함수
+=======
+>>>>>>> e34b73addc2cb4d431b92c16cad1739c58554f87
 bool PurePursuitController::isWaypointBehind(double wx, double wy) {
     double dx = wx - current_position.x;
     double dy = wy - current_position.y;
@@ -181,6 +197,7 @@ bool PurePursuitController::isWaypointBehind(double wx, double wy) {
     return transformed_x < 0;
 }
 
+<<<<<<< HEAD
 
 
 // 상태별 함수: FOLLOW_PATH
@@ -321,6 +338,85 @@ void PurePursuitController::controlLoop() {
 }
 
 // 브레이크 함수: 정지 명령 발행
+=======
+void PurePursuitController::TurnLeft90() {
+    morai_msgs::SkidSteer6wUGVCtrlCmd ctrl_cmd;
+    ctrl_cmd.cmd_type = 3;
+    ctrl_cmd.Target_linear_velocity = 0;
+    ctrl_cmd.Target_angular_velocity = 0.83;  // 최대 각속도로 왼쪽 회전 (0.83 rad/s)
+    
+    double rotation_time = 1.57/ 0.83;  
+    ros::Time start_time = ros::Time::now();
+
+    ros::Rate rate(10);  // 10 Hz
+    while (ros::ok() && (ros::Time::now() - start_time).toSec() < rotation_time) {
+        ctrl_cmd_pub_.publish(ctrl_cmd);  // 회전 명령 퍼블리시
+        rate.sleep();
+    }
+    Brake();  // 회전 후 정지
+    ROS_INFO("Turned Left 90 Degrees!");
+}
+
+void PurePursuitController::controlLoop() {
+    ros::Rate rate(10);
+    at_goal = false;
+    while (ros::ok()) {
+        ros::spinOnce();  // 콜백 함수 호출
+        if (!at_goal){
+            double angle = steering_angle();
+            double curvature = calculateCurvature();
+
+            // 곡률에 따른 속도 조절
+            double max_speed = 3.0;//7.2; // 최대 속도 (m/s)
+            double min_speed = 1.0; // 최소 속도 (m/s)
+            double speed;
+
+            if (curvature < 0.1) {
+                speed = max_speed;
+            } else {
+                speed = max_speed / (1 + 10 * curvature);
+                if (speed < min_speed) {
+                    speed = min_speed;
+                }
+            }
+
+            // 각속도로 변환 (degrees -> radians)
+            double target_angular_velocity = angle * M_PI / 180.0;
+            
+            // 각속도를 최대값으로 제한
+            if (target_angular_velocity > 0.83) {
+                target_angular_velocity = 0.83;
+            } else if (target_angular_velocity < -0.83) {
+                target_angular_velocity = -0.83;
+            }
+
+            // 현재 위치와 마지막 웨이포인트 비교 후 정지
+            if (!waypoint_path.empty()) {
+                Waypoint last_point = waypoint_path.back();
+                double dist_to_goal = hypot(last_point.x - current_position.x, last_point.y - current_position.y);
+
+                // 목표 지점에 가까워지면 정지
+                if (dist_to_goal < 0.5) {  // 0.3m 이내일 때 정지
+                    Brake();
+                    ROS_INFO("Reached final point and stopped!");
+                    at_goal = true;  // 목표에 도달했음을 표시
+                    continue;  // 다음 루프로 넘어가서 속도 명령을 보내지 않음
+                }
+            }
+            morai_msgs::SkidSteer6wUGVCtrlCmd ctrl_cmd;
+            ctrl_cmd.cmd_type = 3;
+            ctrl_cmd.Target_linear_velocity = speed;
+            ctrl_cmd.Target_angular_velocity = target_angular_velocity;
+            ctrl_cmd_pub_.publish(ctrl_cmd);
+        } else {
+        // 목표에 도달했으면 계속 정지 상태 유지
+            Brake();
+        }
+        rate.sleep();
+    }
+}
+
+>>>>>>> e34b73addc2cb4d431b92c16cad1739c58554f87
 void PurePursuitController::Brake() {
     morai_msgs::SkidSteer6wUGVCtrlCmd ctrl_cmd;
     ctrl_cmd.cmd_type = 3;
