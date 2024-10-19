@@ -41,6 +41,7 @@ add_service_files(
   FILES
   traffic_srv.srv
   StopTrackingSrv.srv
+  ControlSrv.srv
 )
 
 add_action_files(
