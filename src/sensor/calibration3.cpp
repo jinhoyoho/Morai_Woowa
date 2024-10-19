@@ -71,9 +71,8 @@ void calibration3::object_callBack(const morai_woowa::obj_array3::ConstPtr& msg)
                 bounding_boxes.push_back(box);
             }
         }
-
         // 가장 가까운 이미지로 projection 함수 호출
-        this->projection(frame, bounding_boxes, msg->type);
+        this->projection(frame, bounding_boxes, (*closest_msg)->type);
     }
 }
 
@@ -120,7 +119,7 @@ cv::Mat_<double> calibration3::computeRotationMatrix(double roll, double pitch, 
     return R_z * R_y * R_x;
 }
 
-void calibration3::projection(cv::Mat frame, std::vector<BoundingBox> bounding_boxes, int type)
+void calibration3::projection(cv::Mat image, std::vector<BoundingBox> bounding_boxes, int type)
 {
    try {
         // lidar_points가 존재했을 때 실행
@@ -187,12 +186,12 @@ void calibration3::projection(cv::Mat frame, std::vector<BoundingBox> bounding_b
                 if(type == 1)
                 {
                     tvec = (cv::Mat_<double>(3, 1) << lidar_x - camera_x_1, lidar_y - camera_y_2, lidar_z - camera_z_2);
-                    rvec = rvec * this->computeRotationMatrix(0, 15, 0);
+                    rvec = rvec * this->computeRotationMatrix(0, 0, 15);
                 }
                 else if (type == 2)
                 {
                     tvec = (cv::Mat_<double>(3, 1) << lidar_x - camera_x_2, lidar_y - camera_y_2, lidar_z - camera_z_2);
-                    rvec = rvec * this->computeRotationMatrix(0, -15, 0);
+                    rvec = rvec * this->computeRotationMatrix(0, 0, -15);
                 }
 
                 cv::projectPoints(mean, rvec, tvec, cameraMatrix, distCoeffs, imagePoints);
@@ -212,7 +211,7 @@ void calibration3::projection(cv::Mat frame, std::vector<BoundingBox> bounding_b
 
                 // 평균점이 바운딩 박스 안에 있으면 사람으로 판단
                 if (isInBoundingBox) {
-                    cv::circle(frame, cv::Point(x, y), 5, cv::Scalar(0, 255, 0), -1); // 평균점 표시
+                    cv::circle(image, cv::Point(x, y), 5, cv::Scalar(0, 255, 0), -1); // 평균점 표시
 
                     // 평균 거리 계산
                     double averageDistance = std::sqrt(average.x * average.x +
@@ -231,11 +230,16 @@ void calibration3::projection(cv::Mat frame, std::vector<BoundingBox> bounding_b
 
             // average point publish
             points_array_pub.publish(msg);
-                        // 이미지를 출력
+
+            if(type == 1)
+            {
+                cv::imshow("Projected Points", image);
+                cv::waitKey(1);  // 1ms 대기, OpenCV 윈도우를 유지
+            }
             if(type == 2)
             {
-                cv::imshow("Projected Points", frame);
-                cv::waitKey(1);  // 1ms 대기, OpenCV 윈도우를 유지
+                cv::imshow("Projected Points2", image);
+                cv::waitKey(1);
             }
         }
     }
