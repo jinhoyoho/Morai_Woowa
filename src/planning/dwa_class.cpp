@@ -24,8 +24,10 @@ class Dwa{
 public:
     Dwa()
         :as(nh, "planning_tracking", boost::bind(&Dwa::executeAction, this, _1), false){
+            
             candidate_pub = nh.advertise<sensor_msgs::PointCloud>("/candidate_path", 10);
             lpath_pub = nh.advertise<nav_msgs::Path>("lpath", 10);
+
             obstacle_sub = nh.subscribe("obstacle", 10, &Dwa::obstacle_callback, this);
             pose_sub = nh.subscribe("current_pose", 10, &Dwa::pose_callback, this);
 
