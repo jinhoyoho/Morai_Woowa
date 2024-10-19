@@ -33,6 +33,7 @@ add_message_files(
   obj_info.msg
   obj_info2.msg
   obj_array.msg
+  obj_array3.msg
   average_points.msg
   average_points_array.msg
 )
@@ -75,7 +76,7 @@ include_directories(
  ${PCL_INCLUDE_DIRS}
 )
 
-add_executable(sensor_main src/sensor/sensor_main.cpp src/sensor/calibration.cpp src/sensor/LiDAR_pre.cpp src/sensor/traffic.cpp src/sensor/calibration2.cpp)
+add_executable(sensor_main src/sensor/sensor_main.cpp src/sensor/LiDAR_pre.cpp src/sensor/traffic.cpp src/sensor/calibration2.cpp src/sensor/calibration3.cpp)
 target_link_libraries(sensor_main ${catkin_LIBRARIES} ${OpenCV_LIBS} ${PCL_LIBRARIES})
 
 
