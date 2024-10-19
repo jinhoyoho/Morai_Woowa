@@ -1,0 +1,9 @@
+#goal definition
+int16 spot
+bool is_indoor
+---
+#result definition
+bool success
+---
+#feedback
+float32 dis

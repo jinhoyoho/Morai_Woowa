@@ -49,6 +49,7 @@ add_action_files(
   FILES
   Planning_Tracking_Act.action
   Person_Collision_Act.action
+  Person_Collision_Act2.action
 )
 
 generate_messages(
@@ -83,6 +84,9 @@ target_link_libraries(sensor_main ${catkin_LIBRARIES} ${OpenCV_LIBS} ${PCL_LIBRA
 
 add_executable(person_action_node src/sensor/person_action_node.cpp)
 target_link_libraries(person_action_node ${catkin_LIBRARIES})
+
+add_executable(person_action_node2 src/sensor/person_action_node2.cpp)
+target_link_libraries(person_action_node2 ${catkin_LIBRARIES})
 
 ##from sanghun
 add_executable(lidar_db src/planning/lidar_db.cpp)
