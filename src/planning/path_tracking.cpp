@@ -8,7 +8,7 @@ PurePursuitController::PurePursuitController(ros::NodeHandle& nh) :
     previous_time(ros::Time(0)), previous_heading(0.0)
 {
     // Subscriber
-    gpath_sub_ = nh.subscribe("/gpath", 10, &PurePursuitController::publishPath, this);  // Waypoint 구독
+    gpath_sub_ = nh.subscribe("/lpath", 10, &PurePursuitController::publishPath, this);  // Waypoint 구독
     current_pose_sub_ = nh.subscribe("/current_pose", 10, &PurePursuitController::getRobotStatus, this);
     odom_sub_ = nh.subscribe("/odom", 10, &PurePursuitController::odomCallback, this);
     // Publisher
