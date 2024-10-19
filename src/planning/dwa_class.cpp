@@ -95,7 +95,7 @@ public:
     void load_path(std::string path_name, bool is_reverse){
         global_path_ptr->clear();
         
-        auto file_name = "/home/user/catkin_ws/src/Morai_Woowa/path/" + path_name;
+        auto file_name = "/home/leesh/catkin_ws/src/Morai_Woowa/path/" + path_name;
         std::ifstream file(file_name);
         if (!file.is_open()) {
             ROS_ERROR("Failed to open file.");
@@ -150,9 +150,11 @@ public:
         int closet_idx = -1;
         double closet_dis = 9999;
         for (int i=0; i< global_path_ptr->size(); i++){
+            auto k = global_path_ptr->at(global_path_ptr->size() - i -1);
+            cout<< k.size() <<endl;
             auto g_x = global_path_ptr->at(global_path_ptr->size() - i -1).at(0);
             auto g_y = global_path_ptr->at(global_path_ptr->size() - i -1).at(1);
-            auto dis = calculateDistance({g_x, g_y, 0.0}, {pose_ptr->at(0), pose_ptr->at(1), 0.0});
+            auto dis = calculateDistance({g_x, g_y, 0.0}, {(*pose_ptr)[0] , (*pose_ptr)[1] , 0.0});
             if(dis < closet_dis){
                 closet_dis = dis;
                 closet_idx = global_path_ptr->size() - i -1;
@@ -169,10 +171,12 @@ public:
             sliced.resize(predict_time * 10);
         }
 
-        std::cout<<'sl'<<closet_idx<<std::endl;
-        std::cout<<'gp'<<global_path_ptr->size()<<std::endl;
+        std::cout<<"sl"<<closet_idx<<std::endl;
+        std::cout<<"gp"<<global_path_ptr->size()<<std::endl;
+
+        float progress = (float)closet_idx / (float)global_path_ptr->size();
         
-        feedback.feedback.progress_percentage = closet_idx / global_path_ptr->size();
+        feedback.feedback.progress_percentage = progress;
 
         cout<<feedback.feedback.progress_percentage<<endl;
 
@@ -202,7 +206,7 @@ public:
             auto current_angular_velocity = angular_velocity - av_gap * i ;
             for(int j = 0; j < remain_global_path_ptr->size(); j++){
                 auto time = j * 0.1;
-                std::vector<double> candidate_element = {pose_ptr->at(0) + velocity * time * std::cos(current_angular_velocity * time + pose_ptr->at(2)), pose_ptr->at(1) + velocity * time * std::sin(current_angular_velocity * time + pose_ptr->at(2)), 0.0};
+                std::vector<double> candidate_element = {(*pose_ptr)[0] + velocity * time * std::cos(current_angular_velocity * time + (*pose_ptr)[2] ), (*pose_ptr)[1]  + velocity * time * std::sin(current_angular_velocity * time + (*pose_ptr)[2] ), 0.0};
                 candidate_i.push_back(candidate_element); 
             }
             candidate_path_ptr->push_back(candidate_i); 
