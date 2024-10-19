@@ -12,7 +12,7 @@ PurePursuitController::PurePursuitController(ros::NodeHandle& nh) :
     current_pose_sub_ = nh.subscribe("/current_pose", 10, &PurePursuitController::getRobotStatus, this);
     odom_sub_ = nh.subscribe("/odom", 10, &PurePursuitController::odomCallback, this);
     // Publisher
-    ctrl_cmd_pub_ = nh.advertise<morai_msgs::SkidSteer6wUGVCtrlCmd>("/6wheel_skid_ctrl_cmd", 10);
+    ctrl_cmd_pub_ = nh.advertise<morai_msgs::SkidSteer6wUGVCtrlCmd>("/path_tracking_ctrl", 10);
 }
 
 void PurePursuitController::odomCallback(const nav_msgs::Odometry::ConstPtr& msg) {
