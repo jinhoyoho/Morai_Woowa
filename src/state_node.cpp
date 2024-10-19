@@ -350,7 +350,7 @@ public:
             // 이래도 파일 안열리면 걍 없는 경로임 오류 생성
             else {
                 ROS_WARN("Unable to open waypoint file: %s", filename.c_str());
-                return false;
+                // return false;
             }
         }
         loadWaypoints(filename, waypoints_);
@@ -640,13 +640,13 @@ public:
         ros::Rate rate(20);  // 0.01 Hz
         while (ros::ok()) {
 
-            // int starting_point1 = 0;
-            // int arrivel_point1 = 1;
-            // bool is_indoor1 = true;
-            // // starting_point에서 arrival_point로 가라(실내/실외)
-            // // return: (int) arrival point (1번~5번) 지점
-            // // 실패하면 0 반환
-            // request_planning(starting_point1, arrivel_point1, is_indoor1);
+            int starting_point1 = 3;
+            int arrivel_point1 = 0;
+            bool is_indoor1 = true;
+            // starting_point에서 arrival_point로 가라(실내/실외)
+            // return: (int) arrival point (1번~5번) 지점
+            // 실패하면 0 반환
+            request_planning(starting_point1, arrivel_point1, is_indoor1);
 
             // int starting_point2 = 0;
             // int arrivel_point2 = 1;
@@ -657,11 +657,11 @@ public:
 
             float detect_range2 = 16.0;
             // 사람에 부딪혀라 -> 안 쓸것같음
-            request_collision_to_person(detect_range2);
+            // request_collision_to_person(detect_range2);
 
             std::string teleport_point = "respawn_indoor";
             // 실내 respawn 지점으로 이동했는지 안 했는지 -> 이중체크 용도
-            check_teleport_success(teleport_point);
+            // check_teleport_success(teleport_point);
 
             // int arrival_point = 3;
             // bool is_indoor = 3;

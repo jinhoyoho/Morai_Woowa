@@ -31,6 +31,7 @@ void calibration2::lidar_callBack(const sensor_msgs::PointCloud2ConstPtr& msg)
         classPoints[classId].emplace_back(cloud.points[i].x, cloud.points[i].y, cloud.points[i].z);
         // intensity.emplace_back(cloud.points[i].intensity);
     }
+    
     lidar_points = classPoints;
 }
 
@@ -65,8 +66,8 @@ void calibration2::object_callBack(const morai_woowa::obj_array::ConstPtr& msg)
                 BoundingBox box;
                 box.ymax = (*closest_msg)->objects[i].ymax;
                 box.ymin = (*closest_msg)->objects[i].ymin;
-                box.xmax = std::min((*closest_msg)->objects[i].xmax+10, 640);
-                box.xmin = std::max((*closest_msg)->objects[i].xmin-10, 0);
+                box.xmax = std::min((*closest_msg)->objects[i].xmax+20, 640);
+                box.xmin = std::max((*closest_msg)->objects[i].xmin-20, 0);
                 bounding_boxes.push_back(box);
             }
         }
@@ -104,7 +105,6 @@ void calibration2::projection(cv::Mat frame, std::vector<BoundingBox> bounding_b
         // lidar_points가 존재했을 때 실행
         if (!lidar_points.empty()) {
 
-
             morai_woowa::average_points_array msg;
 
             // 각 클래스에 대해 클러스터 크기 필터링 및 평균 계산
@@ -139,7 +139,7 @@ void calibration2::projection(cv::Mat frame, std::vector<BoundingBox> bounding_b
                 float lengthY = maxY - minY;
                 float lengthZ = maxZ - minZ;
 
-                // 클러스터 크기 필터링 (예: 각 축의 길이가 0.5m 이상인 경우만 필터 통과)
+                // 클러스터 크기 필터링 
                 if (lengthX > 1 || lengthY > 1 || 0.3 > lengthZ || lengthZ > 1.8) {
                     continue; // 클러스터가 크면 pass
                 }
