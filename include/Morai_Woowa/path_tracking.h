@@ -25,35 +25,13 @@ public:
     void TurnLeft90();
 
 private:
-<<<<<<< HEAD
-=======
-    bool isWaypointBehind(double wx, double wy);
-    ros::Publisher ctrl_cmd_pub_;
-    
-    ros::Subscriber gpath_sub_;     // 경로 서브스크라이버
-    ros::Subscriber current_pose_sub_; // 로봇 위치 서브스크라이버
-    ros::Subscriber odom_sub_;
-
-    path waypoint_path;
-    Waypoint forward_point;
-    geometry_msgs::Point current_position;
-    
-    double vehicle_yaw;
-    double current_linear_vel;
-    double current_angular_vel;
->>>>>>> e34b73addc2cb4d431b92c16cad1739c58554f87
     double wheel_base;
     double lfd;
     double steering;
     bool is_look_forward_point;
-<<<<<<< HEAD
     double current_linear_vel;
     double current_angular_vel;
     double vehicle_yaw;
-=======
-    bool has_turned_left_90;
-     bool at_goal;
->>>>>>> e34b73addc2cb4d431b92c16cad1739c58554f87
     ros::Time previous_time;
     double previous_heading;
     int current_waypoint_idx_;
@@ -84,8 +62,4 @@ private:
     bool isWaypointBehind(double wx, double wy);
 };
 
-<<<<<<< HEAD
 #endif // PATH_TRACKING_H
-=======
-#endif 
->>>>>>> e34b73addc2cb4d431b92c16cad1739c58554f87
