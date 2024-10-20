@@ -10,7 +10,8 @@
 #include <actionlib/client/simple_action_client.h>
 #include "morai_woowa/Planning_Tracking_ActAction.h"
 #include "morai_woowa/Person_Collision_Act2Action.h"
-#include "morai_woowa/StopTrackingSrv.h"
+#include "morai_woowa/Person_Collision_ActAction.h"
+#include "morai_woowa/ControlSrv.h"
 
 #include <vector>
 #include <fstream>
@@ -43,14 +44,15 @@ public:
     StateNode(): 
     nh_("~"),
     planning_tracking_ac_(nh_, "/planning_tracking", true),
-    person_collision_ac_(nh_, "/person_collision_action2", true)
+    person_collision_ac_(nh_, "/person_collision_action", true),
+    person_collision2_ac_(nh_, "/person_collision_action2", true)
     {
         dilly_item_status_sub_ = nh_.subscribe("/WoowaDillyStatus", 10, &StateNode::itemstatusCallback, this);
         current_pose_sub_ = nh_.subscribe("/current_pose", 10, &StateNode::currentPoseCallback, this);
         waypoint_pub_ = nh_.advertise<geometry_msgs::PoseStamped>("/waypoints", 10);  
 
         delivery_pickup_client_ = nh_.serviceClient<morai_msgs::WoowaDillyEventCmdSrv>("/WoowaDillyEventCmd");
-        stop_tracking_client_ = nh_.serviceClient<morai_woowa::StopTrackingSrv>("/StopTracking");
+        control_mode_client_ = nh_.serviceClient<morai_woowa::ControlSrv>("/Control_srv");
 
         if (planning_tracking_ac_.waitForServer(ros::Duration(5.0))) {  // 5초 대기
             ROS_INFO("Connected to planning_tracking server");
@@ -175,10 +177,16 @@ public:
 
         bool result;
 
-        if(result)
+        if(!result)
             ROS_WARN("PICKUP FAIL");
 
         return result;
+    }
+
+    void change_control_mode(int mode){
+        morai_woowa::ControlSrv control_srv;
+        control_srv.request.mode = mode;
+        control_mode_client_.call(control_srv);
     }
 
     // 파일이름으로 Waypoints load
@@ -315,21 +323,16 @@ public:
     }
 
     void PersonCollisionActionFeedbackCb(const morai_woowa::Person_Collision_Act2FeedbackConstPtr& feedback){
-
-        //std::cout << "state node : planner action feedback: " << feedback->is_target << std::endl;
-        std::cout << "state node : planner action feedback: " << std::endl;
-
-        // if (feedback->is_target){
-        //     is_found_collision_target_ = true;
-        // } 
-        // else {
-        //     is_found_collision_target_ = false;
-        // } 
+        //std::cout << "state node : planner action feedback: " << std::endl;
+        return;
     }
+
 
     // 도착 실패시 0 반환
     // 도착 성공시 arrival_point 반환
     int request_planning(int starting_point, int arrival_point, bool indoor){
+        
+        change_control_mode(1);
 
         std::ostringstream oss;
         std::ostringstream oss2;
@@ -401,136 +404,16 @@ public:
             return 0;
     }
 
-    // 도착 실패시 0 반환
-    // 충돌 성공시 0 반환
-    // 도착 성공시 arrival_point 반환
-    // int request_planning_with_collision(int starting_point, int arrival_point, bool indoor, float range){
-
-    //     std::ostringstream oss;
-    //     std::ostringstream oss2;
-    //     std::string filename;
-    //     std::string out_or_in;
-    //     morai_woowa::Planning_Tracking_ActGoal planning_goal;
-
-    //     if (indoor) 
-    //         out_or_in = "indoor";
-    //     else
-    //         out_or_in = "outdoor";
-        
-    //     //파일 문자열 조합
-    //     oss << out_or_in << "_" << starting_point << "_" << arrival_point << ".csv";
-    //     filename = oss.str();
-
-    //     std::ifstream file(filename);
-
-    //     //파일 존재하면 그 경로로 reverse 모드 안하고 request
-    //     if (file.is_open()) {
-    //         planning_goal.path = filename;  
-    //         planning_goal.reverse = false;  
-    //     }
-    //     //파일 존재하지 않으면 경로 이름 뒤집고
-    //     else {
-    //         oss2 << out_or_in << "_" << arrival_point << "_" << starting_point << ".csv";
-    //         filename = oss2.str();
-    //         std::ifstream file(filename);
-
-    //         // 뒤집었을 때 경로 존재하면 이 경로로 reverse모드로 request
-    //         if (file.is_open()) {
-    //             planning_goal.path = filename;
-    //             planning_goal.reverse = true;  
-    //         }
-    //         // 이래도 파일 안열리면 걍 없는 경로임 오류 생성
-    //         else {
-    //             ROS_WARN("Unable to open waypoint file: %s", filename.c_str());
-    //             return false;
-    //         }
-    //     }
-    //     loadWaypoints(filename, waypoints_);
-
-    //     // 경로 트래킹 요청
-    //     planning_tracking_ac_.sendGoal(planning_goal,
-    //                 boost::bind(&StateNode::PlanningActionDoneCb, this, boost::placeholders::_1, boost::placeholders::_2),
-    //                 boost::bind(&StateNode::PlanningActionActiveCb, this),
-    //                 boost::bind(&StateNode::PlanningActionFeedbackCb, this, boost::placeholders::_1));
-
-    //     // 관련 멤버변수 초기화
-    //     is_planning_action_finished_ = false;
-    //     is_reach_target_point_ = false;
-    //     progress_percentage_ = 0; 
-
-    //     // 사람 충돌 요청
-    //     morai_woowa::Person_Collision_ActGoal collision_goal;
-    //     collision_goal.range = range; 
-
-    //     person_collision_ac_.sendGoal(collision_goal,
-    //                 boost::bind(&StateNode::PersonCollisionActionDoneCb, this, boost::placeholders::_1, boost::placeholders::_2),
-    //                 boost::bind(&StateNode::PersonCollisionActionActiveCb, this),
-    //                 boost::bind(&StateNode::PersonCollisionActionFeedbackCb, this, boost::placeholders::_1));
-
-    //     // 관련 멤버변수 초기화
-    //     is_collision_action_finished_ = false;
-    //     is_success_collision_ = false;
-    //     is_found_collision_target_ = false;
-
-    //     // 한번 사람충돌 실패하면 걍 원래경로 주행하도록하는 flag
-    //     bool tracking_stop_flag = false;
-
-    //     ros::Rate loop_rate(0.5);
-
-    //     while (!is_planning_action_finished_ && ros::ok()){
-            
-    //         // 만약 전체 경로의 25프로도 덜왔을 때 충돌타겟을 발견하면
-    //         if(is_found_collision_target_ && progress_percentage_ < 0.25 && !tracking_stop_flag){
-                
-    //             tracking_stop_flag = true; 
-
-    //             //충돌타겟 발견시 일단 트래킹 프로세스는 멈춰
-    //             morai_woowa::StopTrackingSrv stop_srv;
-    //             stop_srv.request.stop = true;
-    //             stop_tracking_client_.call(stop_srv);
-
-    //             // 충돌에 집중
-    //             while (!is_collision_action_finished_ && ros::ok()){
-    //                 loop_rate.sleep();
-    //                 ros::spinOnce();
-    //             }
-                
-    //             // while문 탈출시는 충돌액션이 끝난거임
-
-    //             // 충돌 성공시
-    //             if(is_success_collision_){
-    //                 planning_tracking_ac_.cancelGoal();
-    //                 return 0;
-    //             } 
-    //             // 충돌 실패시
-    //             else{
-    //                 stop_srv.request.stop = false;
-    //                 stop_tracking_client_.call(stop_srv);
-    //             }
-    //         }
-            
-    //         loop_rate.sleep();
-    //         ros::spinOnce();
-    //     }
-
-    //     person_collision_ac_.cancelGoal();
-
-    //     if(is_reach_target_point_)
-    //         return arrival_point;
-    //     else
-    //         return 0;
-    // }
-
     bool request_collision_to_person(int spot, bool in_indoor){
+
+        change_control_mode(2);
 
         morai_woowa::Person_Collision_Act2Goal collision_goal;
         // collision_goal.range = range; 
         collision_goal.spot = spot;
         collision_goal.is_indoor = in_indoor; 
         
-        std::cout << "asdfasdfsd";
-
-        person_collision_ac_.sendGoal(collision_goal,
+        person_collision2_ac_.sendGoal(collision_goal,
                     boost::bind(&StateNode::PersonCollisionActionDoneCb, this, boost::placeholders::_1, boost::placeholders::_2),
                     boost::bind(&StateNode::PersonCollisionActionActiveCb, this),
                     boost::bind(&StateNode::PersonCollisionActionFeedbackCb, this, boost::placeholders::_1));
@@ -577,7 +460,7 @@ public:
             return false;
         }    
 
-        if (dis < 0.1){
+        if (dis < 1){
             ROS_WARN("teleport success: %s", type.c_str());
             return true;
         }
@@ -649,7 +532,7 @@ public:
         
         dis = calculateDistance(current_x_, current_y_, target_spot.x, target_spot.y);        
 
-        if (dis < 0.1){
+        if (dis < 1){
             ROS_WARN("arrival success: %d", point);
             return true;
         }
@@ -684,23 +567,32 @@ public:
                 std::cout << "arrival_result " << arrival_result << std::endl;
             }
             
-            // pickup
-            item_index = 4;
-            delivery_result = false;
-            while(ros::ok() && !delivery_result){
-                delivery_result = pickup(item_index);    
-            }
+            // // pickup
+            // item_index = 4;
+            // delivery_result = false;
+            // while(ros::ok() && !delivery_result){
+            //     delivery_result = pickup(item_index);    
+            // }
 
             request_collision_to_person(4, true);
 
-
-            starting_point = 4;
+            starting_point = 0;
             arrival_point = 5;
             is_indoor = true;
             arrival_result = 0;
             while(ros::ok() && arrival_result != arrival_point){
                 arrival_result = request_planning(starting_point, arrival_point, is_indoor);    
+                std::cout << "arrival_result " << arrival_result << std::endl;
             }
+
+
+            // starting_point = 4;
+            // arrival_point = 5;
+            // is_indoor = true;
+            // arrival_result = 0;
+            // while(ros::ok() && arrival_result != arrival_point){
+            //     arrival_result = request_planning(starting_point, arrival_point, is_indoor);    
+            // }
 
             // 사람에 부딪혀라 -> 안 쓸것같음
             request_collision_to_person(5, true);
@@ -738,13 +630,14 @@ private:
 
     actionlib::SimpleActionClient<morai_woowa::Planning_Tracking_ActAction> planning_tracking_ac_;
     actionlib::SimpleActionClient<morai_woowa::Person_Collision_Act2Action> person_collision_ac_;
+    actionlib::SimpleActionClient<morai_woowa::Person_Collision_Act2Action> person_collision2_ac_;
 
     ros::Subscriber current_pose_sub_;
     ros::Subscriber dilly_item_status_sub_;
     ros::Publisher waypoint_pub_; 
 
     ros::ServiceClient delivery_pickup_client_;
-    ros::ServiceClient stop_tracking_client_;
+    ros::ServiceClient control_mode_client_;
 
     bool is_planning_action_finished_;
     bool is_reach_target_point_;

@@ -94,12 +94,17 @@ int main(int argc, char** argv)
 
     ROS_INFO("Control_node ON!");
     control_node cn(nh);
+    
+    ros::Rate rate(20);  // 0.01 Hz
 
     while(ros::ok())
     {
         cn.publish_ctrl();   // publish하기
 
         ros::spinOnce();
+        
+        rate.sleep();  // 지정된 주기로 대기
+
     }
 
     return 0;

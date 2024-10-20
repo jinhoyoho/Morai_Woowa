@@ -5,7 +5,7 @@ person_action_node::person_action_node(ros::NodeHandle& nh):PCAserver_(nh, "pers
     PCAserver_.start(); // 액션 서버 시작
     current_pose_sub_ = nh.subscribe("/current_pose", 10, &person_action_node::currentPoseCallback, this);
 
-    ctrl_cmd_pub_ = nh.advertise<morai_msgs::SkidSteer6wUGVCtrlCmd>("/6wheel_skid_ctrl_cmd", 10);
+    ctrl_cmd_pub_ = nh.advertise<morai_msgs::SkidSteer6wUGVCtrlCmd>("/collision_ctrl", 10);
     path_pub_ = nh.advertise<nav_msgs::Path>("person_collision_path", 10);
     
     current_x_ = 0;
@@ -40,94 +40,94 @@ bool person_action_node::check_collision_success(){
 
 // 반원 경로 생성 함수
 std::vector<Spot> person_action_node::generateSemiCircularPath(const Spot& start, const Spot& goal, int num_points) {
-    std::vector<Spot> path;
-
-    // 시작점과 목표점 사이의 중간점 계산
-    Spot mid;
-    mid.x = (start.x + goal.x) / 2.0;
-    mid.y = (start.y + goal.y) / 2.0;
-
-    // 시작점에서 목표점까지의 방향 계산
-    double direction = atan2(goal.y - start.y, goal.x - start.x);
-    std::cout << "Direction to goal: " << direction << std::endl;
-
-    // 반지름 계산 (중간점에서 시작점/목표점까지의 거리)
-    double radius = calculateDistance(mid, start);
-
-    // 반원을 그리기 위한 각도 계산 (반원을 적당히 나누기 위한 각도)
-    double theta_step = M_PI / num_points;  // 반원을 num_points로 나눔
-
-    // 로봇의 현재 yaw와 목표까지의 방향 차이
-    double angle_diff = direction - current_yaw_;
-
-    // 방향 차이를 통해 반원이 어느 방향으로 그려질지 결정
-    if (angle_diff > 0) {  // 목표 방향이 로봇의 오른쪽에 있음 (반원을 오른쪽으로 그림)
-        for (int i = 0; i <= num_points; ++i) {
-            Spot p;
-            double theta = i * theta_step;  // 각도를 점차 증가시키면서 반원을 그림
-
-            // 좌표계의 반원 방정식을 이용한 계산 (오른쪽 반원)
-            p.x = mid.x + radius * std::cos(direction - theta);
-            p.y = mid.y + radius * std::sin(direction - theta);
-
-            path.push_back(p);
-        }
-    } else {  // 목표 방향이 로봇의 왼쪽에 있음 (반원을 왼쪽으로 그림)
-        for (int i = 0; i <= num_points; ++i) {
-            Spot p;
-            double theta = i * theta_step;  // 각도를 점차 증가시키면서 반원을 그림
-
-            // 좌표계의 반원 방정식을 이용한 계산 (왼쪽 반원)
-            p.x = mid.x + radius * std::cos(direction + theta);
-            p.y = mid.y + radius * std::sin(direction + theta);
-
-            path.push_back(p);
-        }
-    }
-
-    return path;
-}
-
 //     std::vector<Spot> path;
 
-//     // 시작점에서 목표점까지의 중간점 계산
+//     // 시작점과 목표점 사이의 중간점 계산
 //     Spot mid;
 //     mid.x = (start.x + goal.x) / 2.0;
 //     mid.y = (start.y + goal.y) / 2.0;
 
-//     // 시작점과 목표점 사이의 방향 계산
+//     // 시작점에서 목표점까지의 방향 계산
 //     double direction = atan2(goal.y - start.y, goal.x - start.x);
 //     std::cout << "Direction to goal: " << direction << std::endl;
 
-//     // 로봇과 목표 지점 사이의 거리 계산
-//     double distance = calculateDistance(start, goal);
+//     // 반지름 계산 (중간점에서 시작점/목표점까지의 거리)
+//     double radius = calculateDistance(mid, start);
 
-//     // 삼각형 꼭짓점 위치 계산 (중간점에서 수직으로 일정 거리만큼 이동한 지점)
-//     double height = distance * 2.0;  // 삼각형의 높이 (경유 지점의 높이)
-//     apex;  // 삼각형 꼭짓점(경유 지점)
-//     apex.x = mid.x + height * std::cos(direction + M_PI_2);  // 수직 방향으로 이동
-//     apex.y = mid.y + height * std::sin(direction + M_PI_2);
+//     // 반원을 그리기 위한 각도 계산 (반원을 적당히 나누기 위한 각도)
+//     double theta_step = M_PI / num_points;  // 반원을 num_points로 나눔
 
-//     // 시작점 -> 경유점(삼각형 꼭짓점) 경로 생성
-//     for (int i = 0; i <= num_points / 2; ++i) {
-//         Spot p;
-//         double t = static_cast<double>(i) / (num_points / 2);
-//         p.x = start.x + t * (apex.x - start.x);
-//         p.y = start.y + t * (apex.y - start.y);
-//         path.push_back(p);
-//     }
+//     // 로봇의 현재 yaw와 목표까지의 방향 차이
+//     double angle_diff = direction - current_yaw_;
 
-//     // 경유점 -> 목표점 경로 생성
-//     for (int i = 0; i <= num_points / 2; ++i) {
-//         Spot p;
-//         double t = static_cast<double>(i) / (num_points / 2);
-//         p.x = apex.x + t * (goal.x - apex.x);
-//         p.y = apex.y + t * (goal.y - apex.y);
-//         path.push_back(p);
+//     // 방향 차이를 통해 반원이 어느 방향으로 그려질지 결정
+//     if (angle_diff > 0) {  // 목표 방향이 로봇의 오른쪽에 있음 (반원을 오른쪽으로 그림)
+//         for (int i = 0; i <= num_points; ++i) {
+//             Spot p;
+//             double theta = i * theta_step;  // 각도를 점차 증가시키면서 반원을 그림
+
+//             // 좌표계의 반원 방정식을 이용한 계산 (오른쪽 반원)
+//             p.x = mid.x + radius * std::cos(direction - theta);
+//             p.y = mid.y + radius * std::sin(direction - theta);
+
+//             path.push_back(p);
+//         }
+//     } else {  // 목표 방향이 로봇의 왼쪽에 있음 (반원을 왼쪽으로 그림)
+//         for (int i = 0; i <= num_points; ++i) {
+//             Spot p;
+//             double theta = i * theta_step;  // 각도를 점차 증가시키면서 반원을 그림
+
+//             // 좌표계의 반원 방정식을 이용한 계산 (왼쪽 반원)
+//             p.x = mid.x + radius * std::cos(direction + theta);
+//             p.y = mid.y + radius * std::sin(direction + theta);
+
+//             path.push_back(p);
+//         }
 //     }
 
 //     return path;
 // }
+
+    std::vector<Spot> path;
+
+    // 시작점에서 목표점까지의 중간점 계산
+    Spot mid;
+    mid.x = (start.x + goal.x) / 2.0;
+    mid.y = (start.y + goal.y) / 2.0;
+
+    // 시작점과 목표점 사이의 방향 계산
+    double direction = atan2(goal.y - start.y, goal.x - start.x);
+    std::cout << "Direction to goal: " << direction << std::endl;
+
+    // 로봇과 목표 지점 사이의 거리 계산
+    double distance = calculateDistance(start, goal);
+
+    // 삼각형 꼭짓점 위치 계산 (중간점에서 수직으로 일정 거리만큼 이동한 지점)
+    double height = distance * 2.0;  // 삼각형의 높이 (경유 지점의 높이)
+    apex;  // 삼각형 꼭짓점(경유 지점)
+    apex.x = mid.x + height * std::cos(direction + M_PI_2);  // 수직 방향으로 이동
+    apex.y = mid.y + height * std::sin(direction + M_PI_2);
+
+    // 시작점 -> 경유점(삼각형 꼭짓점) 경로 생성
+    for (int i = 0; i <= num_points / 2; ++i) {
+        Spot p;
+        double t = static_cast<double>(i) / (num_points / 2);
+        p.x = start.x + t * (apex.x - start.x);
+        p.y = start.y + t * (apex.y - start.y);
+        path.push_back(p);
+    }
+
+    // 경유점 -> 목표점 경로 생성
+    for (int i = 0; i <= num_points / 2; ++i) {
+        Spot p;
+        double t = static_cast<double>(i) / (num_points / 2);
+        p.x = apex.x + t * (goal.x - apex.x);
+        p.y = apex.y + t * (goal.y - apex.y);
+        path.push_back(p);
+    }
+
+    return path;
+}
 
 
 Spot person_action_node::load_spot(int spot, bool is_indoor){
@@ -136,7 +136,7 @@ Spot person_action_node::load_spot(int spot, bool is_indoor){
     
     if(is_indoor){
         if(spot == 4)
-            person_spot = {7, -77};
+            person_spot = {-77, 7};
         else if(spot == 5)
             person_spot = {30.8, -42.5};
 
@@ -153,6 +153,8 @@ void person_action_node::execute(const morai_woowa::Person_Collision_Act2GoalCon
     //ROS_INFO("Execute action: Person Collision Action!");
 
     Spot goal_person = load_spot(goal->spot, goal->is_indoor);
+
+    std::cout << goal_person.x << " " << goal_person.y << std::endl;
 
     // 현재 위치와 목표 위치 설정
     Spot current_pos = {current_x_, current_y_};
@@ -241,7 +243,7 @@ void person_action_node::followPath() {
         target_angular_velocity = -0.83;
     }
 
-    ROS_INFO("Speed: %.2f, Angular Velocity: %.2f", speed, target_angular_velocity);
+    //ROS_INFO("Speed: %.2f, Angular Velocity: %.2f", speed, target_angular_velocity);
 
     // // 제어 명령 발행
     // morai_msgs::SkidSteer6wUGVCtrlCmd ctrl_cmd;
