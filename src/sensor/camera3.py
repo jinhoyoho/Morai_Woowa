@@ -115,12 +115,14 @@ class IMGParser:
             rate.sleep()
 
     def callback1(self, msg):
+        # yaw -15
         self.img_stamp1 = msg.header.stamp
         self.is_image1 = True
         np_arr1 = np.frombuffer(msg.data, np.uint8)  # msg를 uint8 형태로 변환
         self.img_bgr1 = cv2.imdecode(np_arr1, cv2.IMREAD_COLOR)  # 3차원 (RGB) 형태로 전환
 
     def callback2(self, msg):
+        # yaw +15
         self.img_stamp2 = msg.header.stamp
         time_diff = (self.img_stamp1 - self.img_stamp2).to_sec()  # 시간으로 변경
 

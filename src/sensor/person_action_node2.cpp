@@ -277,7 +277,7 @@ void person_action_node::followPath() {
 double person_action_node::steering_angle() {
     bool is_look_forward_point = false;
     geometry_msgs::Point rotated_point;
-    double lfd = 1;
+    double lfd = 0.3;
     double steering;
 
     // 뒤에서부터 경로점 순회
@@ -304,7 +304,7 @@ double person_action_node::steering_angle() {
     // 스티어링 각도 계산
     if (is_look_forward_point) {
         double theta = atan2(rotated_point.y, rotated_point.x);
-        steering = atan2(2 * 3.9 * sin(theta), lfd) * 180.0 / M_PI;
+        steering = atan2(2 * 0.39 * sin(theta), lfd) * 180.0 / M_PI;
     } else {
         steering = 0;
     }
