@@ -8,11 +8,14 @@ PurePursuitController::PurePursuitController(ros::NodeHandle& nh) :
     previous_time(ros::Time(0)), previous_heading(0.0)
 {
     // Subscriber
-    gpath_sub_ = nh.subscribe("/gpath", 10, &PurePursuitController::publishPath, this);  // Waypoint 구독
+    gpath_sub_ = nh.subscribe("/lpath", 10, &PurePursuitController::publishPath, this);  // Waypoint 구독
     current_pose_sub_ = nh.subscribe("/current_pose", 10, &PurePursuitController::getRobotStatus, this);
     odom_sub_ = nh.subscribe("/odom", 10, &PurePursuitController::odomCallback, this);
     // Publisher
-    ctrl_cmd_pub_ = nh.advertise<morai_msgs::SkidSteer6wUGVCtrlCmd>("/6wheel_skid_ctrl_cmd", 10);
+    ctrl_cmd_pub_ = nh.advertise<morai_msgs::SkidSteer6wUGVCtrlCmd>("/path_tracking_ctrl", 10);
+    turn_180_flag_ = false;
+    
+    turn_cnt = 0;
 }
 
 void PurePursuitController::odomCallback(const nav_msgs::Odometry::ConstPtr& msg) {
@@ -35,7 +38,7 @@ void PurePursuitController::getRobotStatus(const geometry_msgs::PoseStamped::Con
     double roll, pitch;
     m.getRPY(roll, pitch, vehicle_yaw);  // Yaw 값을 얻음 (라디안 단위)
         // 현재 x, y 좌표를 출력
-    ROS_INFO("Current Position -> x: %.2f, y: %.2f", current_position.x, current_position.y);
+    //ROS_INFO("Current Position -> x: %.2f, y: %.2f", current_position.x, current_position.y);
     // 현재 시간 얻기
     ros::Time current_time = ros::Time::now();
 
@@ -78,15 +81,45 @@ void PurePursuitController::publishPath(const nav_msgs::Path::ConstPtr& msg) {
         waypoint_path.push_back(wp);
     }
 
-    //ROS_INFO("Received %zu waypoints.", waypoint_path.size());
+    int wpt_num = waypoint_path.size();
+
+    double mid_x = waypoint_path[wpt_num/2].x;
+    double mid_y = waypoint_path[wpt_num/2].y;
+
+    double dx = mid_x - current_position.x;
+    double dy = mid_y - current_position.y;
+
+    geometry_msgs::Point rotated_point;
+
+    rotated_point.x = cos(vehicle_yaw) * dx + sin(vehicle_yaw) * dy;
+    rotated_point.y = sin(vehicle_yaw) * dx - cos(vehicle_yaw) * dy;
+
+    float mid_angle = atan2(rotated_point.y, rotated_point.x);
+
+    // // yaw_diff를 -π ~ π 범위로 맞춤
+    if (mid_angle > M_PI) {
+        mid_angle -= 2 * M_PI;
+    } else if (mid_angle < -M_PI) {
+        mid_angle += 2 * M_PI;
+    }
+
+    // if (rotated_point.x < 0){ 
+    if ( fabs(mid_angle) > M_PI*3/4){ 
+        turn_180_flag_ = true;
+        ROS_INFO("Turn!!!!!!!!!!!!!!!!!!!!!!!!!!!");
+        turn_cnt ++;
+    }
+    else{
+        turn_180_flag_ = false;
+        turn_cnt = 0;
+    }
 }
 
 double PurePursuitController::steering_angle() {
     is_look_forward_point = false;
     geometry_msgs::Point rotated_point;
 
-    for (const auto& wp : waypoint_path) {
-        // 좌표 변환: 로봇 기준으로 경로점 위치 변환
+    for (auto& wp : waypoint_path) {
         double dx = wp.x - current_position.x;
         double dy = wp.y - current_position.y;
 
@@ -151,6 +184,10 @@ void PurePursuitController::controlLoop() {
     ros::Rate rate(10);
     while (ros::ok()) {
         ros::spinOnce();  // 콜백 함수 호출
+
+        if(turn_180_flag_ && turn_cnt > 15)
+            Turn_180();
+
         double angle = steering_angle();
         double curvature = calculateCurvature();
 
@@ -184,10 +221,10 @@ void PurePursuitController::controlLoop() {
             double dist_to_goal = hypot(last_point.x - current_position.x, last_point.y - current_position.y);
 
             // 목표 지점에 가까워지면 정지
-            if (dist_to_goal < 0.5) {  // 0.3m 이내일 때 정지
+            if (dist_to_goal < 0.8) {  // 0.3m 이내일 때 정지
                 Brake();
+                speed = 0;
                 ROS_INFO("Reached final point and stopped!");
-                break;
             }
         }
         morai_msgs::SkidSteer6wUGVCtrlCmd ctrl_cmd;
@@ -205,6 +242,70 @@ void PurePursuitController::Brake() {
     ctrl_cmd.Target_angular_velocity = 0;
     ctrl_cmd_pub_.publish(ctrl_cmd);
     ROS_INFO("Brake Activated!");
+}
+
+void PurePursuitController::Turn_180() {
+
+    ros::Rate rate(10);  // 루프 주기 설정 (10Hz)
+    double target_yaw = vehicle_yaw + M_PI;  // 180도 회전 목표
+    if (target_yaw > 2 * M_PI) {
+        target_yaw -= 2 * M_PI;  // -π ~ π 범위로 맞춤
+    }
+
+    while (ros::ok()) {
+        ros::spinOnce();  // 콜백 함수 호출
+        
+        double now_yaw = vehicle_yaw;
+
+        if (now_yaw > 2 * M_PI) {
+            now_yaw -= 2 * M_PI;  // -π ~ π 범위로 맞춤
+        }
+
+        // 현재 vehicle_yaw와 target_yaw 간의 차이 계산
+        double yaw_diff = target_yaw - vehicle_yaw;
+
+        // // yaw_diff를 -π ~ π 범위로 맞춤
+        // if (yaw_diff > M_PI) {
+        //     yaw_diff -= 2 * M_PI;
+        // } else if (yaw_diff < -M_PI) {
+        //     yaw_diff += 2 * M_PI;
+        // }
+
+        yaw_diff = (yaw_diff > M_PI)? yaw_diff - 2*M_PI : yaw_diff;
+        yaw_diff = (yaw_diff < -M_PI)? yaw_diff + 2*M_PI : yaw_diff;
+
+        std::cout << yaw_diff << " : yaw_diff" << std::endl; 
+
+        float lin_vel = 0.0;
+        float ang_vel = 0.5;
+
+        // 각속도가 충분히 작으면 루프를 종료 (회전 완료)
+        if (fabs(yaw_diff) < 0.3) {  // 각도 차이가 0.01 rad 이하일 경우 완료
+            break;
+        }
+
+        // 제어 명령 발행
+        morai_msgs::SkidSteer6wUGVCtrlCmd ctrl_cmd;
+        ctrl_cmd.cmd_type = 3;
+        ctrl_cmd.Target_linear_velocity = lin_vel;  // 제자리에서 회전하므로 선속도는 0
+        ctrl_cmd.Target_angular_velocity = ang_vel;  // 계산된 각속도
+
+        ctrl_cmd_pub_.publish(ctrl_cmd);
+        ROS_INFO("Rotating... Target Angular Velocity: %.2f", ang_vel);
+
+        rate.sleep();  // 10Hz로 루프 실행
+    }
+
+    // 회전 완료 후 브레이크 명령 발행
+    morai_msgs::SkidSteer6wUGVCtrlCmd ctrl_cmd;
+    ctrl_cmd.cmd_type = 3;
+    ctrl_cmd.Target_linear_velocity = 0;
+    ctrl_cmd.Target_angular_velocity = 0;
+    ctrl_cmd_pub_.publish(ctrl_cmd);
+    ROS_INFO("Rotation Complete, Brake Activated!");
+
+    turn_180_flag_ = false;
+    turn_cnt = 0;
 }
 
 int main(int argc, char** argv) {

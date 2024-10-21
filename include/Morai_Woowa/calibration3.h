@@ -21,7 +21,7 @@
 #include <pcl_conversions/pcl_conversions.h>
 
 #include "morai_woowa/obj_info2.h"
-#include "morai_woowa/obj_array.h"
+#include "morai_woowa/obj_array3.h"
 #include "morai_woowa/average_points.h"
 #include "morai_woowa/average_points_array.h"
 
@@ -36,7 +36,7 @@ struct BoundingBox {
     int16_t ymax;
 };
 
-class calibration2
+class calibration3
 {
 private:
     ros::Subscriber lidar_sub;  // Lidar Pre를 받음
@@ -87,9 +87,13 @@ private:
     double skew_c = 0;
 
     // camera origin
-    double camera_x = 0.2;
-    double camera_y = 0.0;
-    double camera_z = 0.81;
+    double camera_x_1 = 0.250;
+    double camera_y_1 = 0.150;
+    double camera_z_1 = 0.730;  // yaw:: +15
+
+    double camera_x_2 = 0.250;
+    double camera_y_2 = -0.150;
+    double camera_z_2 = 0.730;  // yaw: -15
 
     // lidar origin
     double lidar_x = 0.2;
@@ -102,15 +106,15 @@ private:
     ros::Time last_image_time;  // 마지막으로 받은 이미지 시간
     ros::Time last_lidar_time;  // 마지막으로 받은 라이다 시간
 
-    std::deque<morai_woowa::obj_array::ConstPtr> img_msg_queue; // msg 큐
+    std::deque<morai_woowa::obj_array3::ConstPtr> img_msg_queue; // msg 큐
 
 public:
-    calibration2(ros::NodeHandle& nh);  // 생성자
+    calibration3(ros::NodeHandle& nh);  // 생성자
     
     void lidar_callBack(const sensor_msgs::PointCloud2ConstPtr& msg); // Lidar 받기
-    void object_callBack(const morai_woowa::obj_array::ConstPtr& msg);
+    void object_callBack(const morai_woowa::obj_array3::ConstPtr& msg);
     void do_cali();  // calibration 실행
-    void projection(cv::Mat frame, std::vector<BoundingBox> bounding_boxes); // 라이다 점을 이미지에 투영
+    void projection(cv::Mat frame, std::vector<BoundingBox> bounding_boxes, int type); // 라이다 점을 이미지에 투영
 
     cv::Mat_<double> computeRotationMatrix(double roll, double pitch, double yaw);
 };

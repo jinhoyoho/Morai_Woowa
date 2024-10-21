@@ -2,13 +2,13 @@
 #include <actionlib/server/simple_action_server.h>
 #include "morai_woowa/Person_Collision_ActAction.h"
 #include <morai_msgs/SkidSteer6wUGVCtrlCmd.h>
+#include <morai_woowa/average_points_array.h>
 #include <geometry_msgs/Vector3.h>
 #include <geometry_msgs/PoseStamped.h>
 
 #include <cmath>
 
-int ANG_VEL(0.4);
-int LIN_VEL(7.2);
+float LIN_VEL(7.2);
 
 struct person{
     float x;
@@ -44,9 +44,10 @@ private:
 public:
     person_action_node(ros::NodeHandle& nh);
 
-    void coord_callBack(const geometry_msgs::Vector3::ConstPtr& msg);    
+    void coord_callBack(const morai_woowa::average_points_array::ConstPtr& msg);    
     void execute(const morai_woowa::Person_Collision_ActGoalConstPtr& goal);
     void currentPoseCallback(const geometry_msgs::PoseStamped::ConstPtr& msg); 
+    //void currentPoseCallback(const morai_woowa::average_points_array::ConstPtr& msg); 
     bool check_collision_success();
 
     double calculateDistance(double x1, double y1, double x2, double y2) {

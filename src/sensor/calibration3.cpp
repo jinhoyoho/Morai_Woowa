@@ -1,16 +1,16 @@
-#include "Morai_Woowa/calibration2.h"
+#include "Morai_Woowa/calibration3.h"
 
-calibration2::calibration2(ros::NodeHandle& nh)
+calibration3::calibration3(ros::NodeHandle& nh)
 {
-    lidar_sub = nh.subscribe("lidar_pre", 1, &calibration2::lidar_callBack, this);
-    object_sub = nh.subscribe("person", 1, &calibration2::object_callBack, this);
+    lidar_sub = nh.subscribe("lidar_pre", 1, &calibration3::lidar_callBack, this);
+    object_sub = nh.subscribe("person", 1, &calibration3::object_callBack, this);
     points_array_pub = nh.advertise<morai_woowa::average_points_array>("average_points",10);
     min_distance = 987654321.0;    // 최소 거리 갱신
 
     this->do_cali();
 }
 
-void calibration2::lidar_callBack(const sensor_msgs::PointCloud2ConstPtr& msg)
+void calibration3::lidar_callBack(const sensor_msgs::PointCloud2ConstPtr& msg)
 {
     last_lidar_time = msg->header.stamp; // 라이다 스탬프
 
@@ -36,7 +36,7 @@ void calibration2::lidar_callBack(const sensor_msgs::PointCloud2ConstPtr& msg)
 }
 
 
-void calibration2::object_callBack(const morai_woowa::obj_array::ConstPtr& msg)
+void calibration3::object_callBack(const morai_woowa::obj_array3::ConstPtr& msg)
 {
     // 새로운 이미지 메시지를 큐에 추가
     img_msg_queue.push_back(msg);
@@ -48,7 +48,7 @@ void calibration2::object_callBack(const morai_woowa::obj_array::ConstPtr& msg)
 
     // 큐에서 last_lidar_time과 가장 가까운 이미지 메시지 찾기
     auto closest_msg = std::min_element(img_msg_queue.begin(), img_msg_queue.end(),
-        [this](const morai_woowa::obj_array::ConstPtr& a, const morai_woowa::obj_array::ConstPtr& b) {
+        [this](const morai_woowa::obj_array3::ConstPtr& a, const morai_woowa::obj_array3::ConstPtr& b) {
             return std::abs((a->header.stamp - last_lidar_time).toSec()) <
                    std::abs((b->header.stamp - last_lidar_time).toSec());
         });
@@ -71,13 +71,12 @@ void calibration2::object_callBack(const morai_woowa::obj_array::ConstPtr& msg)
                 bounding_boxes.push_back(box);
             }
         }
-
         // 가장 가까운 이미지로 projection 함수 호출
-        this->projection(frame, bounding_boxes);
+        this->projection(frame, bounding_boxes, (*closest_msg)->type);
     }
 }
 
-void calibration2::do_cali()
+void calibration3::do_cali()
 {
     // 카메라 내부 매트릭스, 회전 벡터, 변환 벡터 정의
     cameraMatrix = (cv::Mat_<double>(3, 3) << fx, 0, cx,
@@ -88,18 +87,39 @@ void calibration2::do_cali()
                                      0, 0, 1,
                                      -1, 0, 0);
 
-    tvec = (cv::Mat_<double>(3, 1) << lidar_x - camera_x, lidar_y - camera_y, lidar_z - camera_z); 
-    
     distCoeffs = cv::Mat::zeros(4, 1, CV_64F); // 왜곡 없음
 
-    std::cout << "cameraMatrix: \n" << cameraMatrix << "\n\n";
-    std::cout << "rvec: \n" << rvec << "\n\n";
-    std::cout << "tvec: \n" << tvec << "\n\n";
-    std::cout << "distCoeffs: \n" << distCoeffs << "\n\n";
+    std::cout << "Do_cali!\n";
 }
 
 
-void calibration2::projection(cv::Mat frame, std::vector<BoundingBox> bounding_boxes)
+cv::Mat_<double> calibration3::computeRotationMatrix(double roll, double pitch, double yaw) {
+    // 각도를 라디안으로 변환
+    roll *= M_PI / 180.0;
+    pitch *= M_PI / 180.0;
+    yaw *= M_PI / 180.0;
+
+    // 회전 행렬 계산
+    cv::Mat_<double> R_x(3, 3);
+    R_x << 1, 0, 0,
+           0, cos(roll), -sin(roll),
+           0, sin(roll), cos(roll);
+
+    cv::Mat_<double> R_y(3, 3);
+    R_y << cos(pitch), 0, sin(pitch),
+           0, 1, 0,
+           -sin(pitch), 0, cos(pitch);
+
+    cv::Mat_<double> R_z(3, 3);
+    R_z << cos(yaw), -sin(yaw), 0,
+           sin(yaw), cos(yaw), 0,
+           0, 0, 1;
+
+    // 전체 회전 행렬
+    return R_z * R_y * R_x;
+}
+
+void calibration3::projection(cv::Mat image, std::vector<BoundingBox> bounding_boxes, int type)
 {
    try {
         // lidar_points가 존재했을 때 실행
@@ -161,6 +181,19 @@ void calibration2::projection(cv::Mat frame, std::vector<BoundingBox> bounding_b
                 std::vector<cv::Point3f> mean = { average };
                 std::cout << average.x << "," << average.y <<"," << average.z <<std::endl;
                 // 3D 포인트를 2D 이미지 평면으로 투영
+
+                // 1번인 경우
+                if(type == 1)
+                {
+                    tvec = (cv::Mat_<double>(3, 1) << lidar_x - camera_x_1, lidar_y - camera_y_2, lidar_z - camera_z_2);
+                    rvec = rvec * this->computeRotationMatrix(0, 0, 15);
+                }
+                else if (type == 2)
+                {
+                    tvec = (cv::Mat_<double>(3, 1) << lidar_x - camera_x_2, lidar_y - camera_y_2, lidar_z - camera_z_2);
+                    rvec = rvec * this->computeRotationMatrix(0, 0, -15);
+                }
+
                 cv::projectPoints(mean, rvec, tvec, cameraMatrix, distCoeffs, imagePoints);
 
                 int x = static_cast<int>(imagePoints[0].x);
@@ -178,7 +211,7 @@ void calibration2::projection(cv::Mat frame, std::vector<BoundingBox> bounding_b
 
                 // 평균점이 바운딩 박스 안에 있으면 사람으로 판단
                 if (isInBoundingBox) {
-                    cv::circle(frame, cv::Point(x, y), 5, cv::Scalar(0, 255, 0), -1); // 평균점 표시
+                    cv::circle(image, cv::Point(x, y), 5, cv::Scalar(0, 255, 0), -1); // 평균점 표시
 
                     // 평균 거리 계산
                     double averageDistance = std::sqrt(average.x * average.x +
@@ -197,9 +230,17 @@ void calibration2::projection(cv::Mat frame, std::vector<BoundingBox> bounding_b
 
             // average point publish
             points_array_pub.publish(msg);
-                        // 이미지를 출력
-            cv::imshow("Projected Points", frame);
-            cv::waitKey(1);  // 1ms 대기, OpenCV 윈도우를 유지
+
+            if(type == 1)
+            {
+                cv::imshow("Projected Points", image);
+                cv::waitKey(1);  // 1ms 대기, OpenCV 윈도우를 유지
+            }
+            if(type == 2)
+            {
+                cv::imshow("Projected Points2", image);
+                cv::waitKey(1);
+            }
         }
     }
     catch (cv_bridge::Exception& e) {
