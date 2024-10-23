@@ -74,7 +74,7 @@ private:
         return degrees * (M_PI / 180.0);
     }
 
-    double fov = 60.0; // Field of View
+    double fov = 75.0; // Field of View
     // focal length
     double fx = 640.0 / (2 * std::tan(deg2rad(fov/2)));
     double fy = fx;
@@ -89,11 +89,11 @@ private:
     // camera origin
     double camera_x_1 = 0.250;
     double camera_y_1 = -0.150;
-    double camera_z_1 = 0.730;  // yaw: -15
+    double camera_z_1 = 0.730;  // yaw: -
 
     double camera_x_2 = 0.250;
     double camera_y_2 = 0.150;
-    double camera_z_2 = 0.730;  // yaw:: +15
+    double camera_z_2 = 0.730;  // yaw:: +
 
     // lidar origin
     double lidar_x = 0.2;

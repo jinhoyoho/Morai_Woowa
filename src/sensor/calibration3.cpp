@@ -126,62 +126,6 @@ void calibration3::projection(cv::Mat image, std::vector<BoundingBox> bounding_b
    try {
         // lidar_points가 존재했을 때 실행
         if (!lidar_points.empty()) {
-
-
-
-            // 모든 Point3f를 담을 벡터
-            std::vector<cv::Point3f> all_points;
-           // 모든 라이다 포인트를 하나의 벡터로 합치기
-            for (const auto& pair : lidar_points)
-             {
-                const std::vector<cv::Point3f>& points = pair.second;
-                for (const auto& point : points) {
-                    // OpenCV의 cv::Mat으로 포인트를 표현
-                    cv::Mat p = (cv::Mat_<double>(3, 1) << point.x, point.y, point.z);
-                    cv::Mat R;
-                    cv::Mat transformed_point;
-
-                    if(type == 1)
-                    {
-                        R = computeRotationMatrix(0, 0, +15); // 회전 변환 적용
-                        tvec = (cv::Mat_<double>(3, 1) << lidar_x - camera_x_1, lidar_y - camera_y_1, lidar_z - camera_z_1);
-                    }
-                    else if (type == 2)
-                    {
-                        R = computeRotationMatrix(0, 0, -15); // 회전 변환 적용
-                        tvec = (cv::Mat_<double>(3, 1) << lidar_x - camera_x_2, lidar_y - camera_y_2, lidar_z - camera_z_2);
-                    }
-                    transformed_point = R * p;
-                    // 변환된 포인트를 all_points에 추가
-                    all_points.emplace_back(transformed_point.at<double>(0), transformed_point.at<double>(1), transformed_point.at<double>(2));
-                }
-            }
-            // 1번인 경우 yaw -15
-            std::vector<cv::Point2f> imagePoints2;
-            cv::projectPoints(all_points, rvec, tvec, cameraMatrix, distCoeffs, imagePoints2);
-            for (size_t i=0; i < imagePoints2.size(); i++)
-            {
-                const auto& imagePoint = imagePoints2[i];
-                int x = static_cast<int>(imagePoint.x); // X 좌표
-                int y = static_cast<int>(imagePoint.y); // Y 좌표
-                cv::circle(image, cv::Point(x,y), 5, cv::Scalar(0, 0, 255), -1);
-            }
-            if(type == 1)
-            {
-                cv::imshow("Projected Points", image);
-                cv::waitKey(1);  // 1ms 대기, OpenCV 윈도우를 유지
-            }
-            if(type == 2)
-            {
-                cv::imshow("Projected Points2", image);
-                cv::waitKey(1);
-            }
-            // 디버깅 종료
-                
-
-
-
-
             morai_woowa::average_points_array msg;
 
             // 각 클래스에 대해 클러스터 크기 필터링 및 평균 계산
@@ -235,14 +179,39 @@ void calibration3::projection(cv::Mat image, std::vector<BoundingBox> bounding_b
 
                 // 이미지 포인트를 저장할 벡터
                 std::vector<cv::Point2f> imagePoints;
-                std::vector<cv::Point3f> mean = { average };
+                // std::vector<cv::Point3f> mean = { average };
+
                 std::cout << average.x << "," << average.y <<"," << average.z <<std::endl;
                 // 3D 포인트를 2D 이미지 평면으로 투영
-                cv::projectPoints(mean, rvec, tvec, cameraMatrix, distCoeffs, imagePoints);
+
+                cv::Mat p = (cv::Mat_<double>(3, 1) << (double)average.x, (double)average.y, (double)average.z);
+                cv::Mat R;
+                cv::Mat transformed_mat; // cv::Mat으로 변환된 점을 저장할 변수
+
+
+                if(type == 1)
+                {
+                    R = computeRotationMatrix(0, 0, 30); // 회전 변환 적용
+                    tvec = (cv::Mat_<double>(3, 1) << lidar_x - camera_x_1, lidar_y - camera_y_1, lidar_z - camera_z_1);
+                }
+                else if (type == 2)
+                {
+                    R = computeRotationMatrix(0, 0, -30); // 회전 변환 적용
+                    tvec = (cv::Mat_<double>(3, 1) << lidar_x - camera_x_2, lidar_y - camera_y_2, lidar_z - camera_z_2);
+                }
+
+                transformed_mat = R * p;
+
+                // cv::Mat을 std::vector<cv::Point3f>로 변환
+                std::vector<cv::Point3f> transformed_point;
+                transformed_point.emplace_back(transformed_mat.at<double>(0), transformed_mat.at<double>(1), transformed_mat.at<double>(2));
+
+                cv::projectPoints(transformed_point, rvec, tvec, cameraMatrix, distCoeffs, imagePoints);
 
 
                 int x = static_cast<int>(imagePoints[0].x);
                 int y = static_cast<int>(imagePoints[0].y);
+
 
                 // 클러스터 평균점이 바운딩 박스 안에 있는지 확인
                 bool isInBoundingBox = false;
@@ -276,16 +245,16 @@ void calibration3::projection(cv::Mat image, std::vector<BoundingBox> bounding_b
             // average point publish
             points_array_pub.publish(msg);
 
-            // if(type == 1)
-            // {
-            //     cv::imshow("Projected Points", image);
-            //     cv::waitKey(1);  // 1ms 대기, OpenCV 윈도우를 유지
-            // }
-            // if(type == 2)
-            // {
-            //     cv::imshow("Projected Points2", image);
-            //     cv::waitKey(1);
-            // }
+            if(type == 1)
+            {
+                cv::imshow("Projected Points", image);
+                cv::waitKey(1);  // 1ms 대기, OpenCV 윈도우를 유지
+            }
+            if(type == 2)
+            {
+                cv::imshow("Projected Points2", image);
+                cv::waitKey(1);
+            }
         }
     }
     catch (cv_bridge::Exception& e) {
