@@ -7,6 +7,8 @@ calibration2::calibration2(ros::NodeHandle& nh)
     points_array_pub = nh.advertise<morai_woowa::average_points_array>("average_points",10);
     min_distance = 987654321.0;    // 최소 거리 갱신
 
+    ROS_INFO("Calibration 2!");
+
     this->do_cali();
 }
 

@@ -24,7 +24,8 @@ class IMGParser:
         self.image_sub1 = rospy.Subscriber("/image_jpeg/compressed1", CompressedImage, self.callback1)
         self.image_sub2 = rospy.Subscriber("/image_jpeg/compressed2", CompressedImage, self.callback2)
         self.traffic_image_pub = rospy.Publisher('traffic_image', Image, queue_size=10)
-        self.obj_pub = rospy.Publisher('person', obj_array3, queue_size=10)
+        self.obj_pub1 = rospy.Publisher('person1', obj_array3, queue_size=10)
+        self.obj_pub2 = rospy.Publisher('person2', obj_array3, queue_size=10)
   
         self.br = CvBridge()
 
@@ -107,27 +108,27 @@ class IMGParser:
                     # 이미지는 한 번만 보내기
                     array_msg.image = self.br.cv2_to_imgmsg(image_copy)
 
-
-                    # 배열과 이미지 보내기
-                    self.obj_pub.publish(array_msg)
-
-
+                    if flag == 1:
+                        # 배열과 이미지 보내기
+                        self.obj_pub1.publish(array_msg)
+                    elif flag == 2:
+                        self.obj_pub2.publish(array_msg)
+                        
             rate.sleep()
 
     def callback1(self, msg):
+        # yaw -
         self.img_stamp1 = msg.header.stamp
         self.is_image1 = True
         np_arr1 = np.frombuffer(msg.data, np.uint8)  # msg를 uint8 형태로 변환
         self.img_bgr1 = cv2.imdecode(np_arr1, cv2.IMREAD_COLOR)  # 3차원 (RGB) 형태로 전환
 
     def callback2(self, msg):
+        # yaw +
         self.img_stamp2 = msg.header.stamp
-        time_diff = (self.img_stamp1 - self.img_stamp2).to_sec()  # 시간으로 변경
-
-        if abs(time_diff) < 0.003: # 30ms
-            self.is_image2 = True
-            np_arr2 = np.frombuffer(msg.data, np.uint8)  # msg를 uint8 형태로 변환
-            self.img_bgr2 = cv2.imdecode(np_arr2, cv2.IMREAD_COLOR)  # 3차원 (RGB) 형태로 전환
+        self.is_image2 = True
+        np_arr2 = np.frombuffer(msg.data, np.uint8)  # msg를 uint8 형태로 변환
+        self.img_bgr2 = cv2.imdecode(np_arr2, cv2.IMREAD_COLOR)  # 3차원 (RGB) 형태로 전환
 
 if __name__ == '__main__':
     try:

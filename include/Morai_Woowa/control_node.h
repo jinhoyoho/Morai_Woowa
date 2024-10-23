@@ -2,7 +2,6 @@
 
 #include <morai_msgs/SkidSteer6wUGVCtrlCmd.h>
 #include "morai_woowa/ControlSrv.h"  // mode: 0, 1, 2, 3을 받음, result: 잘 받았는지 확인
-#include "morai_woowa/ctrl_dilly.h"
 
 class control_node
 {

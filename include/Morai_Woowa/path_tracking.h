@@ -6,6 +6,7 @@
 #include <geometry_msgs/PoseStamped.h>
 #include "Morai_Woowa/way_point.h"
 #include <nav_msgs/Odometry.h>
+#include <cmath>
 
 typedef std::vector<Waypoint> path;
 
@@ -23,6 +24,7 @@ public:
     double calculateCurvature();
     void controlLoop();
     void Brake();
+    void Turn_180();
 
 
 private:
@@ -45,6 +47,10 @@ private:
     bool is_look_forward_point;
     ros::Time previous_time;
     double previous_heading;
+
+    int turn_cnt;
+
+    bool turn_180_flag_;
 };
 
 #endif 

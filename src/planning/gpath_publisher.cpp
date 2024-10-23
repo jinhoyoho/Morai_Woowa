@@ -18,7 +18,7 @@ int main(int argc, char** argv) {
     // Open the CSV file
     
     // 여기서 파일 이름만 바꿔
-    std::ifstream file("/home/eric/ex_ws/src/morai_woowa/path/indoor_3_6.csv");
+    std::ifstream file("/home/eric/ex_ws/src/morai_woowa/path/outdoor_d1_d2.csv");
     if (!file.is_open()) {
         ROS_ERROR("Failed to open file.");
         return -1;

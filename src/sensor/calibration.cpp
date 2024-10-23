@@ -7,6 +7,8 @@ calibration::calibration(ros::NodeHandle& nh)
     lidar_pub = nh.advertise<geometry_msgs::Vector3>("lidar_coord", 10);
     min_distance = 987654321.0;    // 최소 거리 갱신
 
+    ROS_INFO("Calibration 1!");
+
     this->do_cali();
 }
 

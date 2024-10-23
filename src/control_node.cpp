@@ -9,13 +9,13 @@ control_node::control_node(ros::NodeHandle& nh)
     Target_angular_velocity = 0; // 각속도 0으로 초기화
     Target_linear_velocity = 0; // 선속도 0으로 초기화
 
-    path_tracking_sub_ = nh.subscribe("path_tracking_ctrl", 1, &control_node::callBack_1, this);
-    collision_sub_ = nh.subscribe("collision_ctrl", 1, &control_node::callBack_2, this);
-    escape_sub_ = nh.subscribe("escape_ctrl", 1, &control_node::callBack_3, this);
+    path_tracking_sub_ = nh.subscribe("/path_tracking_ctrl", 1, &control_node::callBack_1, this);
+    collision_sub_ = nh.subscribe("/collision_ctrl", 1, &control_node::callBack_2, this);
+    escape_sub_ = nh.subscribe("/escape_ctrl", 1, &control_node::callBack_3, this);
     control_pub_ = nh.advertise<morai_msgs::SkidSteer6wUGVCtrlCmd>("/6wheel_skid_ctrl_cmd", 10);
-
+    
     // 서비스 서버
-    control_server_ = nh.advertiseService("Control_srv", &control_node::change_mode, this);
+    control_server_ = nh.advertiseService("/Control_srv", &control_node::change_mode, this);
 }
 
 void control_node::callBack_1(const morai_msgs::SkidSteer6wUGVCtrlCmdPtr& msg)
@@ -94,12 +94,17 @@ int main(int argc, char** argv)
 
     ROS_INFO("Control_node ON!");
     control_node cn(nh);
+    
+    ros::Rate rate(20);  // 0.01 Hz
 
     while(ros::ok())
     {
         cn.publish_ctrl();   // publish하기
 
         ros::spinOnce();
+        
+        rate.sleep();  // 지정된 주기로 대기
+
     }
 
     return 0;
