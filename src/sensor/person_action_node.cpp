@@ -1,19 +1,20 @@
 #include "Morai_Woowa/person_action_node.h"
 
 person_action_node::person_action_node(ros::NodeHandle& nh):
-PCAserver_(nh, "person_collision_action", boost::bind(&person_action_node::execute, this, _1), false),
+PCAserver_(nh, "person_collision_action2", boost::bind(&person_action_node::execute, this, _1), false),
 generator()
 {
     PCAserver_.start(); // 액션 서버 시작
-    lidar_utm_sub = nh.subscribe("/lidre_utm", 10, &person_action_node::pointcloud_callback, this);
+    lidar_utm_sub = nh.subscribe("/lidar_utm", 10, &person_action_node::pointcloud_callback, this);
     current_pose_sub_ = nh.subscribe("/current_pose", 10, &person_action_node::currentPoseCallback, this);
 
     ctrl_cmd_pub_ = nh.advertise<morai_msgs::SkidSteer6wUGVCtrlCmd>("/6wheel_skid_ctrl_cmd", 10);
     astar_path_pub_ = nh.advertise<nav_msgs::Path>("/astar_path", 10);
-    marker_pub_= nh.advertise<visualization_msgs::Marker>("/ldpoint", 10);
+    ld_marker_pub_= nh.advertise<visualization_msgs::Marker>("/astar_ld", 10);
+    goal_marker_pub_= nh.advertise<visualization_msgs::Marker>("/astar_goal", 10);
+    rviz_pointcloud_pub_ = nh.advertise<sensor_msgs::PointCloud2>("astar_points_cloud", 1);
 
     //초기 range
-    person_range_ = 5.0;
     closest_person_.x = 0;
     closest_person_.y = 0;
 
@@ -23,16 +24,17 @@ generator()
     last_target_found_time_ = ros::Time::now();
     double averageDistance = 9999999;
 
-    world_size_limit_ = 3;
+    world_size_limit_ = 5;
+    collision_enable_dis_ = 10;
 
     grid_size_ = 0.1;
 
     generator.setHeuristic(AStar::Heuristic::euclidean);
-    generator.setBackMovement(false);
+    generator.setBackMovement(true);
     generator.setGridSize(grid_size_);
-    generator.setCollisionDis(0.18);//17
-    generator.setCollisionDis_main(0.18);
-    generator.setCollisionDis_sub(0.12);//
+    generator.setCollisionDis(0.4);
+    generator.setCollisionDis_sub(0.2);
+
 }
 
 bool person_action_node::check_collision_success(){
@@ -69,7 +71,7 @@ AStar::Vec2i person_action_node::load_spot(int spot, bool is_indoor){
         if(spot == 4)
             person_spot = {-77, 7};
         else if(spot == 5)
-            person_spot = {30.8, -42.5};
+            person_spot = {30.8, -42.4};
 
     }
 
@@ -92,19 +94,28 @@ void person_action_node::execute(const morai_woowa::Person_Collision_Act2GoalCon
     float grid_goal_center_x = grid_goal_x_ * grid_size_ + grid_size_ / 2.0f;
     float grid_goal_center_y = grid_goal_y_ * grid_size_ + grid_size_ / 2.0f;
     
-    while(ros::ok){
+    while(ros::ok()){
+
+        if( (grid_goal_center_x <= world_x_limit_.x || grid_goal_center_x >= world_x_limit_.y ||
+            grid_goal_center_y <= world_y_limit_.x || grid_goal_center_y >= world_y_limit_.y))
+        {
+            ROS_WARN("TOO far !!");
+            continue;
+        }
 
         ros::spinOnce();
-        
+        generator.clearCollisions();
         generator.addCollision(astar_point_vector_);
 
         float grid_current_x_ = static_cast<int>(current_x_ / grid_size_);
         float grid_current_y_ = static_cast<int>(current_y_ / grid_size_);
+
         float grid_current_center_x = grid_current_x_ * grid_size_ + grid_size_ / 2.0f;
         float grid_current_center_y = grid_current_y_ * grid_size_ + grid_size_ / 2.0f;
 
-        auto path = generator.findPath({grid_current_center_x, grid_current_center_y}, {grid_goal_center_x, grid_goal_center_y});
+        pub_marker_astar_goal(grid_goal_center_x, grid_goal_center_y);
 
+        auto path = generator.findPath({grid_current_center_x, grid_current_center_y}, {grid_goal_center_x, grid_goal_center_y});
 
         nav_msgs::Path path_msg;
         path_msg.header.frame_id = "map"; 
@@ -124,22 +135,23 @@ void person_action_node::execute(const morai_woowa::Person_Collision_Act2GoalCon
 
         astar_path_pub_.publish(path_msg);
         
-        size_t size = path.size();
+        int size = path.size();
 
-        size_t index = size - 10;
+        int index = std::max(size - 10, 0);
 
         // 뒤에서 10번째 요소 가져오기
         auto LD_point = path[index];
         float LD_x = LD_point.x;
         float LD_y = LD_point.y;
 
-        pub_marker(LD_x, LD_y);
-
+        pub_marker_astar_LD(LD_x, LD_y);
 
         // feedback.dis = is_target;
         
         // PCAserver_.publishFeedback(feedback);
-        double ly = atan2(LD_y, LD_x);
+        // double ly = atan2(LD_y, LD_x);
+        double ly = atan2(LD_y - current_y_, LD_x - current_x_);
+
 
         double d_yaw = ly - current_yaw_;
 
@@ -147,26 +159,33 @@ void person_action_node::execute(const morai_woowa::Person_Collision_Act2GoalCon
         d_yaw = (d_yaw < -M_PI)? d_yaw + 2*M_PI : d_yaw;
 
         std::cout << d_yaw << " : d_yaw" << std::endl; 
+        std::cout << ly << " : l_yaw" << std::endl; 
+        std::cout << current_yaw_ << " : current_yaw_" << std::endl; 
+        std::cout << size << " : path size" << std::endl; 
+
+
 
         float lin_vel = 0.1;
         float ang_vel = 0.0;
 
-        if(abs(d_yaw) < 7*M_PI/180)
+        if(abs(d_yaw) < 15*M_PI/180)
         { 
-        lin_vel = 2;
+        lin_vel = 2.0;
         ang_vel = 0.0;
         }
         else
         {
+            // lin_vel = 0.0;
+            // ang_vel = 0.4;
             if(d_yaw > 0)
             {
             lin_vel = 0.0;
-            ang_vel = 0.3;
+            ang_vel = -0.3;
             }
             else 
             {
             lin_vel = 0.0;
-            ang_vel = -0.3;
+            ang_vel = 0.3;
             }
         }
         
@@ -188,7 +207,7 @@ void person_action_node::execute(const morai_woowa::Person_Collision_Act2GoalCon
     PCAserver_.setSucceeded(result);
 }
 
-void person_action_node::pub_marker(float LD_x, float LD_y)
+void person_action_node::pub_marker_astar_LD(float LD_x, float LD_y)
 {
     // 마커 메시지 생성
     visualization_msgs::Marker marker;
@@ -213,7 +232,35 @@ void person_action_node::pub_marker(float LD_x, float LD_y)
     marker.color.b = 0.0;
 
     // 마커 퍼블리시
-    marker_pub_.publish(marker);
+    ld_marker_pub_.publish(marker);
+}
+
+void person_action_node::pub_marker_astar_goal(float goal_x, float goal_y)
+{
+    // 마커 메시지 생성
+    visualization_msgs::Marker marker;
+    marker.header.frame_id = "map";
+    marker.ns = "ld_point";
+    marker.id = 0;
+    marker.type = visualization_msgs::Marker::SPHERE;
+    marker.action = visualization_msgs::Marker::ADD;
+    marker.pose.position.x = goal_x;
+    marker.pose.position.y = goal_y;
+    marker.pose.position.z = 0.0;
+    marker.pose.orientation.x = 0.0;
+    marker.pose.orientation.y = 0.0;
+    marker.pose.orientation.z = 0.0;
+    marker.pose.orientation.w = 1.0;
+    marker.scale.x = 0.1;  // 크기 설정
+    marker.scale.y = 0.1;
+    marker.scale.z = 0.1;
+    marker.color.a = 1.0;  // 불투명도 설정
+    marker.color.r = 1.0;  // 빨간색
+    marker.color.g = 0.0;
+    marker.color.b = 0.0;
+
+    // 마커 퍼블리시
+    goal_marker_pub_.publish(marker);
 }
 
 void person_action_node::currentPoseCallback(const geometry_msgs::PoseStamped::ConstPtr& msg) {
@@ -246,13 +293,15 @@ void person_action_node::pointcloud_callback(const sensor_msgs::PointCloud2::Con
 
     // 중복을 피하기 위한 set
     std::set<std::pair<float, float>> unique_points;
-
+    // 새로운 PointCloud2 메시지 생성
+    sensor_msgs::PointCloud2 output_cloud;
+    pcl::PointCloud<pcl::PointXYZ> pcl_output_cloud;
     // 포인트 클라우드를 XY 평면에 프로젝션하고 제한된 영역으로 잘라냅니다.
     for (const auto& point : cloud->points) 
     {
         // 현재 위치와 제한된 영역을 기준으로 포인트를 필터링합니다.
         if (point.x >= world_x_limit_.x && point.x <= world_x_limit_.y &&
-            point.y >= world_y_limit_.x && point.y <= world_y_limit_.y)
+            point.y >= world_y_limit_.x && point.y <= world_y_limit_.y && point.z > -0.6)
         {
             float grid_current_x_ = static_cast<int>(point.x / grid_size_);
             float grid_current_y_ = static_cast<int>(point.y / grid_size_);
@@ -262,15 +311,33 @@ void person_action_node::pointcloud_callback(const sensor_msgs::PointCloud2::Con
             // 중복 체크
             std::pair<float, float> temp_point = {grid_current_center_x, grid_current_center_y};
             if (unique_points.insert(temp_point).second) {
+                
                 // 중복되지 않을 경우만 astar_point_vector_에 추가
+                if(calculateDistance(grid_current_center_x, grid_current_center_y, goal_person_.x, goal_person_.y) < 0.9)
+                    continue;
+
                 astar_point_vector_.push_back({grid_current_center_x, grid_current_center_y});
+
+                // PointCloud에 추가
+                pcl::PointXYZ pcl_point;
+                pcl_point.x = grid_current_center_x;
+                pcl_point.y = grid_current_center_y;
+                pcl_point.z = 0.0; // Z 축은 0으로 설정
+                pcl_output_cloud.points.push_back(pcl_point);
             }
         }
     }
 
+    // pcl::PointCloud를 sensor_msgs::PointCloud2로 변환
+    pcl::toROSMsg(pcl_output_cloud, output_cloud);
+    output_cloud.header.frame_id = "map";  // Frame 설정
+    output_cloud.header.stamp = ros::Time::now();
+
+    // 포인트 클라우드를 퍼블리시
+    rviz_pointcloud_pub_.publish(output_cloud);
+
     return;
 }
-
 
 int main(int argc, char** argv)
 {

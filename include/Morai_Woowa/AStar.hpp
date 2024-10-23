@@ -41,8 +41,8 @@ namespace AStar
 
     class Generator
     {
-        //bool detectCollision(Vec2i coordinates_, Vec2i source_);
-        bool detectCollision(Vec2i coordinates_);
+        bool detectCollision(Vec2i coordinates_, Vec2i source_);
+        //bool detectCollision(Vec2i coordinates_);
 
         Node* findNodeOnList(NodeSet& nodes_, Vec2i coordinates_);
         void releaseNodes(NodeSet& nodes_);
@@ -54,6 +54,7 @@ namespace AStar
         //void setWorldSize(Vec2i worldSize);
 
         void setBackMovement(bool enable_);
+        //void decision_collision(Vec2i coordinates_);
 
         void setCollisionDis(float dis);
         void setCollisionDis_main(float dis_main);

@@ -41,7 +41,10 @@ class person_action_node
 private:
     ros::Publisher ctrl_cmd_pub_; 
     ros::Publisher astar_path_pub_; 
-    ros::Publisher marker_pub_;
+    ros::Publisher ld_marker_pub_;
+    ros::Publisher goal_marker_pub_;
+    ros::Publisher rviz_pointcloud_pub_;
+
     ros::Subscriber current_pose_sub_;
     ros::Subscriber lidar_utm_sub;    // 라이다 좌표
     
@@ -62,6 +65,8 @@ private:
 
     float world_size_limit_;
 
+    float collision_enable_dis_;
+
     AStar::Vec2i world_x_limit_;
     AStar::Vec2i world_y_limit_;
     AStar::Vec2i goal_person_;
@@ -73,7 +78,9 @@ public:
     void execute(const morai_woowa::Person_Collision_Act2GoalConstPtr& goal);
     void currentPoseCallback(const geometry_msgs::PoseStamped::ConstPtr& msg); 
     bool check_collision_success();
-    void pub_marker(float LD_x, float LD_y);
+    void pub_marker_astar_LD(float LD_x, float LD_y);
+    void pub_marker_astar_goal(float goal_x, float goal_y);
+
     void pointcloud_callback(const sensor_msgs::PointCloud2::ConstPtr& msg);
     AStar::Vec2i load_spot(int spot, bool is_indoor);
 

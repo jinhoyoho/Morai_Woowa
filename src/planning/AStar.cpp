@@ -105,8 +105,8 @@ AStar::CoordinateList AStar::Generator::findPath(Vec2i source_, Vec2i target_)
     openSet.push_back(new Node(source_));
     std::cout << collision_dis << ": collision_dis" << std::endl;
 
-    while (!openSet.empty()) {
-    //for(int i=0; i<10000;i++){
+    //while (!openSet.empty()) {
+    for(int i=0; i<10000;i++){
         auto current_it = openSet.begin();
         current = *current_it;
         // .begin() > 첫 번째 idx
@@ -127,10 +127,9 @@ AStar::CoordinateList AStar::Generator::findPath(Vec2i source_, Vec2i target_)
 
         float dis = heuristic(current->coordinates, target_);
         
-        if (dis < 0.1) {
+        if (dis < 0.3) {
             //std::cout << "closedSet.size() : " << closedSet.size() << std::endl;
             printf("끝!!!!!!\n");
-            //setCollisionDis(collision_dis_main);
             break;
         }
 
@@ -139,8 +138,8 @@ AStar::CoordinateList AStar::Generator::findPath(Vec2i source_, Vec2i target_)
 
         for (uint i = 0; i < directions; ++i) {
             Vec2i newCoordinates(current->coordinates + direction[i]);
-            // if (detectCollision(newCoordinates, source_) ||
-            if (detectCollision(newCoordinates) ||
+            if (detectCollision(newCoordinates, source_) ||
+            //if (detectCollision(newCoordinates) ||
                 findNodeOnList(closedSet, newCoordinates)) {
                 continue;
             }
@@ -214,9 +213,9 @@ bool AStar::Generator::decision_collision(Vec2i coordinates_)
 }
 
 
-bool AStar::Generator::detectCollision(Vec2i coordinates_)
+bool AStar::Generator::detectCollision(Vec2i coordinates_, Vec2i source_)
 {
-    // float dis_from_source = heuristic(source_, coordinates_);
+    float dis_from_source = heuristic(source_, coordinates_);
 
     // if (coordinates_.x < worldSize_x.x || coordinates_.x >= worldSize_x.y ||
     //     coordinates_.y < worldSize_y.x || coordinates_.y >= worldSize_y.y) 
@@ -224,14 +223,26 @@ bool AStar::Generator::detectCollision(Vec2i coordinates_)
     //     return true;
     // }
     
-    // if (dis_from_source < 1.4 && decision_collision(coordinates_))
-    // {
-    //     return true;
-    // }
+    if (decision_collision(coordinates_))
+    {
+        //std::cout << "collision!!!!!!!!!!!!!!"<< std::endl;
+        return true;
+    }
 
     if (coordinates_.x < worldSize_x.x || coordinates_.x >= worldSize_x.y ||
-        coordinates_.y < worldSize_y.x  || coordinates_.y >= worldSize_y.y ||
-        std::find(walls.begin(), walls.end(), coordinates_) != walls.end()) {
+        coordinates_.y < worldSize_y.x  || coordinates_.y >= worldSize_y.y ){
+        // std::cout << "worldSize_x.x :"<< worldSize_x.x << std::endl;
+        // std::cout << "worldSize_x.y :"<< worldSize_x.y << std::endl;
+        // std::cout << "worldSize_y.x :"<< worldSize_y.x << std::endl;
+        // std::cout << "worldSize_y.y :"<< worldSize_y.y << std::endl;
+        // std::cout << "coordinates_.x :"<< coordinates_.x << std::endl;
+        // std::cout << "coordinates_.y :"<< coordinates_.y << std::endl;
+        return true;
+    }
+
+    if(std::find(walls.begin(), walls.end(), coordinates_) != walls.end()) {
+        std::cout << "walls.size() :"<< walls.size() << std::endl;
+
         return true;
     }
     return false;

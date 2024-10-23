@@ -60,7 +60,7 @@ public:
             ROS_WARN("planning_tracking server not available!");
         }
         
-        if (person_collision_ac_.waitForServer(ros::Duration(5.0))) {  
+        if (person_collision2_ac_.waitForServer(ros::Duration(5.0))) {  
             ROS_INFO("Connected to person_collision server");
         } else {
             ROS_WARN("person_collision server not available!");
@@ -558,14 +558,14 @@ public:
             // starting_point에서 arrival_point로 가라(실내/실외)
             // return: (int) arrival point (1번~5번) 지점
             // 실패하면 0 반환
-            starting_point = 0;
-            arrival_point = 4;
-            is_indoor = true;
-            arrival_result = 0;
-            while(ros::ok() && arrival_result != arrival_point){
-                arrival_result = request_planning(starting_point, arrival_point, is_indoor);    
-                std::cout << "arrival_result " << arrival_result << std::endl;
-            }
+            // starting_point = 0;
+            // arrival_point = 4;
+            // is_indoor = true;
+            // arrival_result = 0;
+            // while(ros::ok() && arrival_result != arrival_point){
+            //     arrival_result = request_planning(starting_point, arrival_point, is_indoor);    
+            //     std::cout << "arrival_result " << arrival_result << std::endl;
+            // }
             
             // // pickup
             // item_index = 4;
@@ -574,16 +574,16 @@ public:
             //     delivery_result = pickup(item_index);    
             // }
 
-            request_collision_to_person(4, true);
+            request_collision_to_person(5, true);
 
-            starting_point = 0;
-            arrival_point = 5;
-            is_indoor = true;
-            arrival_result = 0;
-            while(ros::ok() && arrival_result != arrival_point){
-                arrival_result = request_planning(starting_point, arrival_point, is_indoor);    
-                std::cout << "arrival_result " << arrival_result << std::endl;
-            }
+            // starting_point = 0;
+            // arrival_point = 5;
+            // is_indoor = true;
+            // arrival_result = 0;
+            // while(ros::ok() && arrival_result != arrival_point){
+            //     arrival_result = request_planning(starting_point, arrival_point, is_indoor);    
+            //     std::cout << "arrival_result " << arrival_result << std::endl;
+            // }
 
 
             // starting_point = 4;
