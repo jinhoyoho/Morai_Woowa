@@ -66,9 +66,9 @@ void DynamicPlanning::Rear() {
     // Control mode를 1로 변경하는 서비스 호출
 
     morai_woowa::ControlSrv control_srv;
-    control_srv.request.mode = 1;  // mode 1로 전환 요청 (path_tracking 모드)
+    control_srv.request.mode = 0;  // mode 0로 전환 요청
     
-    if (control_client.call(control_srv)) {
+    if (control_client_.call(control_srv)) {
         ROS_INFO("Successfully switched back to mode 1 (path_tracking mode)");
     } else {
         ROS_ERROR("Failed to switch back to mode 1");
