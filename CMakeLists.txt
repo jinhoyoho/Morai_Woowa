@@ -23,6 +23,10 @@ find_package(Boost REQUIRED COMPONENTS system)
 
 find_package(OpenCV REQUIRED)
 
+add_library(${PROJECT_NAME}_lib
+  "src/planning/AStar.cpp"
+)
+
 
 ##from sanghun
 find_package(PCL REQUIRED)
@@ -83,10 +87,10 @@ target_link_libraries(sensor_main ${catkin_LIBRARIES} ${OpenCV_LIBS} ${PCL_LIBRA
 
 
 add_executable(person_action_node src/sensor/person_action_node.cpp)
-target_link_libraries(person_action_node ${catkin_LIBRARIES})
+target_link_libraries(person_action_node ${catkin_LIBRARIES} ${PROJECT_NAME}_lib)
 
 add_executable(person_action_node2 src/sensor/person_action_node2.cpp)
-target_link_libraries(person_action_node2 ${catkin_LIBRARIES})
+target_link_libraries(person_action_node2 ${catkin_LIBRARIES} )
 
 ##from sanghun
 add_executable(lidar_db src/planning/lidar_db.cpp)

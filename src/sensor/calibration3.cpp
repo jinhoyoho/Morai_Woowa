@@ -3,7 +3,8 @@
 calibration3::calibration3(ros::NodeHandle& nh)
 {
     lidar_sub = nh.subscribe("lidar_pre", 1, &calibration3::lidar_callBack, this);
-    object_sub = nh.subscribe("person", 1, &calibration3::object_callBack, this);
+    object_sub1 = nh.subscribe("person1", 1, &calibration3::object_callBack1, this);
+    object_sub2 = nh.subscribe("person2", 1, &calibration3::object_callBack2, this);
     points_array_pub = nh.advertise<morai_woowa::average_points_array>("average_points",10);
     min_distance = 987654321.0;    // 최소 거리 갱신
 
@@ -38,7 +39,7 @@ void calibration3::lidar_callBack(const sensor_msgs::PointCloud2ConstPtr& msg)
 }
 
 
-void calibration3::object_callBack(const morai_woowa::obj_array3::ConstPtr& msg)
+void calibration3::object_callBack1(const morai_woowa::obj_array3::ConstPtr& msg)
 {
     // 새로운 이미지 메시지를 큐에 추가
     img_msg_queue.push_back(msg);
@@ -73,8 +74,58 @@ void calibration3::object_callBack(const morai_woowa::obj_array3::ConstPtr& msg)
                 bounding_boxes.push_back(box);
             }
         }
+        auto t = ros::Time::now();
+
         // 가장 가까운 이미지로 projection 함수 호출
         this->projection(frame, bounding_boxes, (*closest_msg)->type);
+
+        std::cout << "1 dt:" <<ros::Time::now() -t << std::endl;
+    }
+}
+
+
+void calibration3::object_callBack2(const morai_woowa::obj_array3::ConstPtr& msg)
+{
+    // 새로운 이미지 메시지를 큐에 추가
+    img_msg_queue2.push_back(msg);
+
+    // 큐의 크기를 제한 (최대 10개의 메시지 유지)
+    if (img_msg_queue2.size() > 10) {
+        img_msg_queue2.pop_front();
+    }
+
+    // 큐에서 last_lidar_time과 가장 가까운 이미지 메시지 찾기
+    auto closest_msg = std::min_element(img_msg_queue2.begin(), img_msg_queue2.end(),
+        [this](const morai_woowa::obj_array3::ConstPtr& a, const morai_woowa::obj_array3::ConstPtr& b) {
+            return std::abs((a->header.stamp - last_lidar_time).toSec()) <
+                   std::abs((b->header.stamp - last_lidar_time).toSec());
+        });
+
+    if (closest_msg != img_msg_queue2.end()) {
+        // 가장 가까운 메시지를 사용하여 처리
+        frame = cv::Mat((*closest_msg)->image.height, (*closest_msg)->image.width, CV_8UC3, const_cast<unsigned char*>((*closest_msg)->image.data.data()), (*closest_msg)->image.step);
+
+        // BoundingBox를 저장할 벡터 선언
+        std::vector<BoundingBox> bounding_boxes;
+
+        for (size_t i = 0; i < (*closest_msg)->objects.size(); i++) {
+            // 사람이면 BoundingBox 저장
+            if ((*closest_msg)->objects[i].name == "person") {
+                BoundingBox box;
+                box.ymax = (*closest_msg)->objects[i].ymax;
+                box.ymin = (*closest_msg)->objects[i].ymin;
+                box.xmax = std::min((*closest_msg)->objects[i].xmax+20, 640);
+                box.xmin = std::max((*closest_msg)->objects[i].xmin-20, 0);
+                bounding_boxes.push_back(box);
+            }
+        }
+        auto t = ros::Time::now();
+
+        // 가장 가까운 이미지로 projection 함수 호출
+        this->projection(frame, bounding_boxes, (*closest_msg)->type);
+        
+        std::cout << "2 dt:" <<ros::Time::now() -t << std::endl;
+
     }
 }
 
@@ -181,7 +232,7 @@ void calibration3::projection(cv::Mat image, std::vector<BoundingBox> bounding_b
                 std::vector<cv::Point2f> imagePoints;
                 // std::vector<cv::Point3f> mean = { average };
 
-                std::cout << average.x << "," << average.y <<"," << average.z <<std::endl;
+                // std::cout << average.x << "," << average.y <<"," << average.z <<std::endl;
                 // 3D 포인트를 2D 이미지 평면으로 투영
 
                 cv::Mat p = (cv::Mat_<double>(3, 1) << (double)average.x, (double)average.y, (double)average.z);

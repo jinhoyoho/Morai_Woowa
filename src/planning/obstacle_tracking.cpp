@@ -35,6 +35,8 @@ void make_arrows(ros::Publisher& marker_pub);
 void make_obstacle_msg();
 void removeSmallClusters();
 
+int hz = 60;
+
 int marker_size = 0;
 
 int main(int argc, char **argv){
@@ -46,7 +48,7 @@ int main(int argc, char **argv){
     
     ros::Publisher marker_array_pub = nh.advertise<visualization_msgs::Marker>("visualization_marker_array", 10);
     ros::Publisher obstacle_pub = nh.advertise<sensor_msgs::PointCloud2>("obstacle", 10);
-    ros::Rate loop_rate(10);
+    ros::Rate loop_rate(hz);
 
     while (ros::ok()) {
         pcl::toROSMsg(*cloud_ptr, *cloud_msg_ptr);
@@ -55,7 +57,7 @@ int main(int argc, char **argv){
         loop_rate.sleep();
         // ROS_INFO("%ld", clusters_ptr->size());
         ros::spinOnce();
-        if(center_points_history_ptr->size() == 10){
+        if(center_points_history_ptr->size() == hz){
             make_arrows(marker_array_pub);
         }
         obstacle_pub.publish(*obstacle_msg_ptr);
@@ -77,13 +79,13 @@ void person_callback(const morai_woowa::average_points_array::ConstPtr& msg){
         }
         center_points_history_ptr->push_back((*center_points_ptr));
 
-        if(center_points_history_ptr->size() > 10){
+        if(center_points_history_ptr->size() > hz){
             center_points_history_ptr->erase(center_points_history_ptr->begin());
         }
 
         // std::cout<<center_points_history_ptr->size()<<"\n";
 
-        if(center_points_history_ptr->size() == 10){
+        if(center_points_history_ptr->size() == hz){
             tracking();
             make_obstacle_msg();
         }
@@ -185,13 +187,13 @@ pcl::PointXYZ get_center(pcl::PointCloud<pcl::PointXYZI>::Ptr cloud_ptr){
 void tracking(){
     pcl::KdTreeFLANN<pcl::PointXYZ> kdtree;
     translation_ptr->clear();
-    translation_ptr->resize(center_points_history_ptr->at(9).size());
+    translation_ptr->resize(center_points_history_ptr->at(hz-1).size());
     
     for(int i=0; i<translation_ptr->size(); i++){
-        auto search_point = center_points_history_ptr->at(9).at(i);
+        auto search_point = center_points_history_ptr->at(hz-1).at(i);
         for(int j=0; j<center_points_history_ptr->size() -1; j++){
-            auto current_scene = center_points_history_ptr->at(9-j);
-            auto target_scene = center_points_history_ptr->at(8-j);
+            auto current_scene = center_points_history_ptr->at(hz-1-j);
+            auto target_scene = center_points_history_ptr->at(hz-2-j);
             
             kdtree.setInputCloud(target_scene.makeShared());
             int K = 1;  // 최근접점 10개를 찾음
@@ -219,7 +221,7 @@ void tracking(){
                 //     translation_ptr->at(i).y = 0.0;
                 // }
                  
-                translation_ptr->at(i).z += 0.1;
+                translation_ptr->at(i).z += 1.0/(double)hz;
                 search_point = nearest_point;
             }
         }
@@ -250,8 +252,6 @@ void make_arrows(ros::Publisher& marker_pub) {
 
     // 마커를 초기화하고 새 마커들을 추가
     for (int i = 0; i < center_points_ptr->size(); i++) {
-        std::cout<<"newadd"<<std::endl;
-        std::cout<<i<<std::endl;
         visualization_msgs::Marker marker;
 
         // Marker의 프레임 설정
@@ -304,8 +304,6 @@ void make_arrows(ros::Publisher& marker_pub) {
 
     // 새 마커들을 퍼블리시
     for (int i = 0; i < arrow_array_ptr->markers.size(); i++) {
-        std::cout<<"newpub"<<std::endl;
-        std::cout<<i<<std::endl;
         marker_pub.publish(arrow_array_ptr->markers[i]);
     }
 }
@@ -314,11 +312,11 @@ void make_arrows(ros::Publisher& marker_pub) {
 
 void make_obstacle_msg(){
     obstacle_ptr->clear();
-    obstacle_ptr->resize(center_points_history_ptr->at(9).size());
+    obstacle_ptr->resize(center_points_history_ptr->at(hz-1).size());
 
-    for(int i=0; i<center_points_history_ptr->at(9).size(); i++){
-        obstacle_ptr->at(i).x = center_points_history_ptr->at(9).at(i).x;
-        obstacle_ptr->at(i).y = center_points_history_ptr->at(9).at(i).y;
+    for(int i=0; i<center_points_history_ptr->at(hz-1).size(); i++){
+        obstacle_ptr->at(i).x = center_points_history_ptr->at(hz-1).at(i).x;
+        obstacle_ptr->at(i).y = center_points_history_ptr->at(hz-1).at(i).y;
         obstacle_ptr->at(i).z = translation_ptr->at(i).x;
         obstacle_ptr->at(i).intensity = translation_ptr->at(i).y;
     }
