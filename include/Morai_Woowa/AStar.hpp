@@ -41,7 +41,9 @@ namespace AStar
 
     class Generator
     {
-        bool detectCollision(Vec2i coordinates_, Vec2i source_);
+        //bool detectCollision(Vec2i coordinates_, Vec2i source_);
+        bool detectCollision(Vec2i coordinates_);
+
         Node* findNodeOnList(NodeSet& nodes_, Vec2i coordinates_);
         void releaseNodes(NodeSet& nodes_);
         bool decision_collision(Vec2i coordinates_);
@@ -59,7 +61,7 @@ namespace AStar
 
         void setHeuristic(HeuristicFunction heuristic_);
         CoordinateList findPath(Vec2i source_, Vec2i target_);
-        void addCollision(const std::vector<std::vector<float>>& point_vector);
+        void addCollision(const std::vector<std::pair<float, float>>& point_vector);
         void removeCollision(Vec2i coordinates_);
         void clearCollisions();
         void setGridSize(float GridSize_);

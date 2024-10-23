@@ -75,11 +75,11 @@ void AStar::Generator::setHeuristic(HeuristicFunction heuristic_)
     heuristic = std::bind(heuristic_, _1, _2);
 }
 
-void AStar::Generator::addCollision(const std::vector<std::vector<float>>& point_vector) 
+void AStar::Generator::addCollision(const std::vector<std::pair<float, float>>& point_vector) 
 {
     // point_vector의 모든 요소를 walls에 추가합니다.
     for (const auto& point : point_vector) {
-        walls.push_back({point[0], point[1]});
+        walls.push_back({point.first, point.second});
     }
 }
 
@@ -139,7 +139,8 @@ AStar::CoordinateList AStar::Generator::findPath(Vec2i source_, Vec2i target_)
 
         for (uint i = 0; i < directions; ++i) {
             Vec2i newCoordinates(current->coordinates + direction[i]);
-            if (detectCollision(newCoordinates, source_) ||
+            // if (detectCollision(newCoordinates, source_) ||
+            if (detectCollision(newCoordinates) ||
                 findNodeOnList(closedSet, newCoordinates)) {
                 continue;
             }
@@ -212,28 +213,30 @@ bool AStar::Generator::decision_collision(Vec2i coordinates_)
     return false;
 }
 
-bool AStar::Generator::detectCollision(Vec2i coordinates_, Vec2i source_)
+
+bool AStar::Generator::detectCollision(Vec2i coordinates_)
 {
-    float dis_from_source = heuristic(source_, coordinates_);
+    // float dis_from_source = heuristic(source_, coordinates_);
 
-    //std::cout << dis_from_source << "dis_from_source" << std::endl;
-
-    // if (coordinates_.x < 0 || coordinates_.x >= worldSize.x ||
-    //     coordinates_.y < -worldSize.y/2 || coordinates_.y >= worldSize.y/2 ||
+    // if (coordinates_.x < worldSize_x.x || coordinates_.x >= worldSize_x.y ||
+    //     coordinates_.y < worldSize_y.x || coordinates_.y >= worldSize_y.y) 
+    // {
+    //     return true;
+    // }
+    
+    // if (dis_from_source < 1.4 && decision_collision(coordinates_))
+    // {
+    //     return true;
+    // }
 
     if (coordinates_.x < worldSize_x.x || coordinates_.x >= worldSize_x.y ||
-        coordinates_.y < worldSize_y.x || coordinates_.y >= worldSize_y.y) 
-    {
+        coordinates_.y < worldSize_y.x  || coordinates_.y >= worldSize_y.y ||
+        std::find(walls.begin(), walls.end(), coordinates_) != walls.end()) {
         return true;
     }
-    
-    if (dis_from_source < 1.4 && decision_collision(coordinates_))
-    {
-        return true;
-    }
-    
     return false;
 }
+    
 
 AStar::Vec2i AStar::Heuristic::getDelta(Vec2i source_, Vec2i target_)
 {
