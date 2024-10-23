@@ -6,6 +6,7 @@
 #include <geometry_msgs/Point.h>
 #include <pcl/point_cloud.h>
 #include <pcl/point_types.h>
+#include <morai_woowa/average_points_array.h>
 #include <pcl_conversions/pcl_conversions.h>
 #include <pcl/kdtree/kdtree_flann.h>
 #include <vector>
@@ -27,6 +28,7 @@ auto clusters_ptr = std::make_shared<std::vector<pcl::PointCloud<pcl::PointXYZI>
 auto center_points_history_ptr = std::make_shared<std::vector<pcl::PointCloud<pcl::PointXYZ>>>();
 
 void cluster_callback(const sensor_msgs::PointCloud2::ConstPtr& msg);
+void person_callback(const morai_woowa::average_points_array::ConstPtr& msg);
 pcl::PointXYZ get_center(pcl::PointCloud<pcl::PointXYZI>::Ptr cloud_ptr);
 void tracking();
 void make_arrows(ros::Publisher& marker_pub);
@@ -39,14 +41,16 @@ int main(int argc, char **argv){
     ros::init(argc, argv, "obstacle_tracking");
     ros::NodeHandle nh;
     // ros::Subscriber cluster_sub = nh.subscribe("clustered_points", 10, cluster_callback);
-    ros::Subscriber cluster_sub = nh.subscribe("lidar_utm", 10, cluster_callback);
+    // ros::Subscriber cluster_sub = nh.subscribe("lidar_utm", 10, cluster_callback);
+    ros::Subscriber person_sub = nh.subscribe("/average_points", 10, person_callback);
+    
     ros::Publisher marker_array_pub = nh.advertise<visualization_msgs::Marker>("visualization_marker_array", 10);
     ros::Publisher obstacle_pub = nh.advertise<sensor_msgs::PointCloud2>("obstacle", 10);
     ros::Rate loop_rate(10);
 
     while (ros::ok()) {
         pcl::toROSMsg(*cloud_ptr, *cloud_msg_ptr);
-        std::cout<<arrow_array_ptr->markers.size()<<std::endl;
+        // std::cout<<arrow_array_ptr->markers.size()<<std::endl;
 
         loop_rate.sleep();
         // ROS_INFO("%ld", clusters_ptr->size());
@@ -57,6 +61,33 @@ int main(int argc, char **argv){
         obstacle_pub.publish(*obstacle_msg_ptr);
     }
     return 0;
+}
+
+void person_callback(const morai_woowa::average_points_array::ConstPtr& msg){
+    center_points_ptr->clear();
+
+    if(msg->points_array.size() != 0){
+        // pcl::PointCloud<pcl::PointXYZ> people;
+        (*center_points_ptr).resize(msg->points_array.size());
+    
+        for(int i=0; i<msg->points_array.size(); i++){
+            (*center_points_ptr)[i].x = msg->points_array[i].average_x;
+            (*center_points_ptr)[i].y = msg->points_array[i].average_y;
+            (*center_points_ptr)[i].z = msg->points_array[i].average_z;
+        }
+        center_points_history_ptr->push_back((*center_points_ptr));
+
+        if(center_points_history_ptr->size() > 10){
+            center_points_history_ptr->erase(center_points_history_ptr->begin());
+        }
+
+        // std::cout<<center_points_history_ptr->size()<<"\n";
+
+        if(center_points_history_ptr->size() == 10){
+            tracking();
+            make_obstacle_msg();
+        }
+    }
 }
 
 void cluster_callback(const sensor_msgs::PointCloud2::ConstPtr& msg){
@@ -104,13 +135,7 @@ void cluster_callback(const sensor_msgs::PointCloud2::ConstPtr& msg){
             }
 
         }
-
-
-
-
     }
-
-
 }
 
 void removeSmallClusters() {
@@ -199,6 +224,7 @@ void tracking(){
             }
         }
     }
+    std::cout<<translation_ptr->size()<<"\n";
 
 }
 
