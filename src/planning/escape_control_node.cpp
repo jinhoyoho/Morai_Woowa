@@ -1,7 +1,40 @@
 #include "Morai_Woowa/escape_control_node.h"
+#include <geometry_msgs/PoseStamped.h>
+#include <limits>
+#include <ros/ros.h>
 
-DynamicPlanning::DynamicPlanning() : nh_("~") {
+DynamicPlanning::DynamicPlanning() : nh_("~"), is_robot_stuck_(false), no_movement_duration_(5.0) {
     escape_ctrl_pub_ = nh_.advertise<morai_msgs::SkidSteer6wUGVCtrlCmd>("/escape_ctrl", 10);//escape_ctrl
+    scurrent_pose_sub = nh_.subscribe("/current_pose", 10, &DynamicPlanning::waypointCallback, this);
+    control_client_ = nh_.serviceClient<morai_woowa::ControlSrv>("/Control_srv");
+    
+    // 이전 위치 초기화
+    previous_position_x_ = std::numeric_limits<double>::max();
+    previous_position_y_ = std::numeric_limits<double>::max();
+    last_movement_time_ = ros::Time::now();
+}
+
+void DynamicPlanning::waypointCallback(const geometry_msgs::PoseStamped::ConstPtr& msg) {
+    double current_position_x = msg->pose.position.x;
+    double current_position_y = msg->pose.position.y;
+
+    // 로봇이 움직이지 않았는지 확인 (위치가 거의 변하지 않았을 경우)
+    double distance_moved = hypot(current_position_x - previous_position_x_, current_position_y - previous_position_y_);
+    // 로봇이 멈췄고, 멈춘 시간이 5초 이상일 때 후진 명령 실행
+    if (distance_moved < 0.01) {  // 이동이 거의 없을 때
+        if ((ros::Time::now() - last_movement_time_).toSec() > no_movement_duration_ && !is_robot_stuck_) {
+            ROS_WARN("Robot seems to be stuck for 5 seconds. Executing Rear function...");
+            Rear();  
+            is_robot_stuck_ = true;  // 후진 실행 후 상태 업데이트
+        }
+    } else {  // 로봇이 움직이면 last_movement_time을 갱신하고 stuck 상태 해제
+        last_movement_time_ = ros::Time::now();  // 마지막으로 움직인 시간을 갱신
+        is_robot_stuck_ = false;  // 로봇이 움직였으므로 stuck 상태 해제
+    }
+
+    // 이전 위치를 현재 위치로 업데이트
+    previous_position_x_ = current_position_x;
+    previous_position_y_ = current_position_y;
 }
 
 void DynamicPlanning::Brake() {
@@ -24,84 +57,30 @@ void DynamicPlanning::Rear() {
 
     ros::Rate rate(10); 
     while (ros::ok() && (ros::Time::now() - start_time).toSec() < rear_time) {
-        escape_ctrl_pub_.publish(escape_ctrl);  // 후진 명령 퍼블리시
+        escape_ctrl_pub_.publish(escape_ctrl); 
         rate.sleep();
     }
 
-    Brake();  // 후진 후 정지
+    Brake(); 
     ROS_INFO("Moved 5m Backwards and Stopped!");
+    // Control mode를 1로 변경하는 서비스 호출
 
-}
-
-void DynamicPlanning::TurnLeft90() {
-    morai_msgs::SkidSteer6wUGVCtrlCmd escape_ctrl;
-    escape_ctrl.cmd_type = 3;
-    escape_ctrl.Target_linear_velocity = 0;
-    escape_ctrl.Target_angular_velocity = -0.83;  // 최대 각속도로 왼쪽 회전 (0.83 rad/s)
+    morai_woowa::ControlSrv control_srv;
+    control_srv.request.mode = 1;  // mode 1로 전환 요청 (path_tracking 모드)
     
-    double rotation_time = M_PI/2 / 0.83;  // 90도 (1.57 rad)를 0.83 rad/s로 회전하는 데 필요한 시간
-    ros::Time start_time = ros::Time::now();
-
-    ros::Rate rate(10);  // 10 Hz
-    while (ros::ok() && (ros::Time::now() - start_time).toSec() < rotation_time) {
-        escape_ctrl_pub_.publish(escape_ctrl);  // 회전 명령 퍼블리시
-        rate.sleep();
+    if (control_client.call(control_srv)) {
+        ROS_INFO("Successfully switched back to mode 1 (path_tracking mode)");
+    } else {
+        ROS_ERROR("Failed to switch back to mode 1");
     }
-
-    Brake();  // 회전 후 정지
-
-    ROS_INFO("Turned Left 90 Degrees!");
 }
 
-void DynamicPlanning::TurnLeft180() {
-    morai_msgs::SkidSteer6wUGVCtrlCmd escape_ctrl;
-    escape_ctrl.cmd_type = 3;
-    escape_ctrl.Target_linear_velocity = 0;
-    escape_ctrl.Target_angular_velocity = -0.83;  // 최대 각속도로 회전 (0.83 rad/s)
-
-    double rotation_time = M_PI / 0.83 + 0.146;  // 180도 (3.14 rad)를 0.83 rad/s로 회전하는 데 필요한 시간
-    ros::Time start_time = ros::Time::now();
-
-    ros::Rate rate(10);  
-    while (ros::ok() && (ros::Time::now() - start_time).toSec() < rotation_time) {
-        escape_ctrl_pub_.publish(escape_ctrl);  // 회전 명령 퍼블리시
-        rate.sleep();
-    }
-
-    Brake();  // 회전 후 정지
-    ROS_INFO("Turned 180 Degrees!");
-}
-void DynamicPlanning::TurnRight180() {
-    morai_msgs::SkidSteer6wUGVCtrlCmd escape_ctrl;
-    escape_ctrl.cmd_type = 3;
-    escape_ctrl.Target_linear_velocity = 0;
-    escape_ctrl.Target_angular_velocity = 0.83;  // 최대 각속도로 회전 (0.83 rad/s)
-
-    double rotation_time = M_PI / 0.83 - 0.0156;  // 180도 (3.14 rad)를 0.83 rad/s로 회전하는 데 필요한 시간
-    ros::Time start_time = ros::Time::now();
-
-    ros::Rate rate(10);  
-    while (ros::ok() && (ros::Time::now() - start_time).toSec() < rotation_time) {
-        escape_ctrl_pub_.publish(escape_ctrl);  // 회전 명령 퍼블리시
-        rate.sleep();
-    }
-
-    Brake();  // 회전 후 정지
-    ROS_INFO("Turned Right 180 Degrees!");
-}
 
 int main(int argc, char** argv) {
     ros::init(argc, argv, "escape_ctrl_node");
     ros::NodeHandle nh;
 
     DynamicPlanning dp;
-        
-    dp.Rear();
-    // ros::Duration(0.5).sleep();  
-    // dp.TurnLeft180();
-    // ros::Duration(0.5).sleep();  
-    // //dp.TurnRight180();
-    // dp.Brake();
 
     ros::Rate loop_rate(10); 
     ros::spin();
