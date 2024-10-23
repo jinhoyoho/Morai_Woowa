@@ -13,7 +13,6 @@ control_node::control_node(ros::NodeHandle& nh)
     collision_sub_ = nh.subscribe("collision_ctrl", 1, &control_node::callBack_2, this);
     escape_sub_ = nh.subscribe("escape_ctrl", 1, &control_node::callBack_3, this);
     control_pub_ = nh.advertise<morai_msgs::SkidSteer6wUGVCtrlCmd>("/6wheel_skid_ctrl_cmd", 10);
-
     // 서비스 서버
     control_server_ = nh.advertiseService("Control_srv", &control_node::change_mode, this);
 }

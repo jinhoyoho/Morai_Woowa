@@ -40,7 +40,8 @@ class calibration3
 {
 private:
     ros::Subscriber lidar_sub;  // Lidar Pre를 받음
-    ros::Subscriber object_sub; // detect한 이미지 사각형의 x, y와 이미지를 전달
+    ros::Subscriber object_sub1; // detect한 이미지 사각형의 x, y와 이미지를 전달
+    ros::Subscriber object_sub2; // detect한 이미지 사각형의 x, y와 이미지를 전달
     ros::Publisher lidar_pub;   // Lidar 좌표 publish
     ros::Publisher points_array_pub;
     
@@ -74,7 +75,7 @@ private:
         return degrees * (M_PI / 180.0);
     }
 
-    double fov = 60.0; // Field of View
+    double fov = 75.0; // Field of View
     // focal length
     double fx = 640.0 / (2 * std::tan(deg2rad(fov/2)));
     double fy = fx;
@@ -88,12 +89,12 @@ private:
 
     // camera origin
     double camera_x_1 = 0.250;
-    double camera_y_1 = 0.150;
-    double camera_z_1 = 0.730;  // yaw:: +15
+    double camera_y_1 = -0.150;
+    double camera_z_1 = 0.730;  // yaw: -
 
     double camera_x_2 = 0.250;
-    double camera_y_2 = -0.150;
-    double camera_z_2 = 0.730;  // yaw: -15
+    double camera_y_2 = 0.150;
+    double camera_z_2 = 0.730;  // yaw:: +
 
     // lidar origin
     double lidar_x = 0.2;
@@ -107,12 +108,15 @@ private:
     ros::Time last_lidar_time;  // 마지막으로 받은 라이다 시간
 
     std::deque<morai_woowa::obj_array3::ConstPtr> img_msg_queue; // msg 큐
+    std::deque<morai_woowa::obj_array3::ConstPtr> img_msg_queue2; // msg 큐
+
 
 public:
     calibration3(ros::NodeHandle& nh);  // 생성자
     
     void lidar_callBack(const sensor_msgs::PointCloud2ConstPtr& msg); // Lidar 받기
-    void object_callBack(const morai_woowa::obj_array3::ConstPtr& msg);
+    void object_callBack1(const morai_woowa::obj_array3::ConstPtr& msg);
+    void object_callBack2(const morai_woowa::obj_array3::ConstPtr& msg);
     void do_cali();  // calibration 실행
     void projection(cv::Mat frame, std::vector<BoundingBox> bounding_boxes, int type); // 라이다 점을 이미지에 투영
 
