@@ -1,5 +1,5 @@
 #include <ros/ros.h>
-#include <ros/package.h>  
+#include <ros/package.h>
 #include <geometry_msgs/PoseStamped.h>
 #include <visualization_msgs/Marker.h>
 #include <tf/transform_datatypes.h>
@@ -105,7 +105,7 @@ public:
     bool delivery(int item_index){
 
         morai_msgs::WoowaDillyEventCmdSrv deli_srv;
-        deli_srv.request.request.isPickup = true; // 배달 준비완료
+        deli_srv.request.request.isPickup = false; // 배달 준비완료
         deli_srv.request.request.deliveryItemIndex = item_index; // 배달할 아이템 번호
         
         delivery_pickup_client_.call(deli_srv);  // 서비스 요청
@@ -446,15 +446,6 @@ public:
             // starting_point에서 arrival_point로 가라(실내/실외)
             // return: (int) arrival point (1번~5번) 지점
             // 실패하면 0 반환
-
-
-
-
-
-
-
-
-
 
             starting_point = 0;
             arrival_point = 4;

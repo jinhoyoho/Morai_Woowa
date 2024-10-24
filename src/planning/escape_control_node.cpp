@@ -24,6 +24,15 @@ void DynamicPlanning::waypointCallback(const geometry_msgs::PoseStamped::ConstPt
     if (distance_moved < 0.01) {  // 이동이 거의 없을 때
         if ((ros::Time::now() - last_movement_time_).toSec() > no_movement_duration_ && !is_robot_stuck_) {
             ROS_WARN("Robot seems to be stuck for 5 seconds. Executing Rear function...");
+            morai_woowa::ControlSrv control_srv;
+            control_srv.request.mode = 3;  // mode 3로 전환 요청
+    
+            if (control_client_.call(control_srv)) {
+                ROS_INFO("Successfully switched back to mode 3 (escape mode)");
+            } else {
+                ROS_ERROR("Failed to switch back to mode 3");
+            }
+            
             Rear();  
             is_robot_stuck_ = true;  // 후진 실행 후 상태 업데이트
         }
