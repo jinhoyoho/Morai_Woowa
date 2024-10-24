@@ -105,7 +105,7 @@ public:
     bool delivery(int item_index){
 
         morai_msgs::WoowaDillyEventCmdSrv deli_srv;
-        deli_srv.request.request.isPickup = true; // 배달 준비완료
+        deli_srv.request.request.isPickup = false; // 배달 준비완료
         deli_srv.request.request.deliveryItemIndex = item_index; // 배달할 아이템 번호
         
         delivery_pickup_client_.call(deli_srv);  // 서비스 요청
