@@ -6,7 +6,7 @@
     <!-- collision action node 실행 -->
     <!-- <node pkg="morai_woowa" type="collision_action_node" name="collision_action_node" output="screen"></node> -->
     <!-- escape control node 실행 -->
-    <!-- <node pkg="morai_woowa" type="escape_control_node" name="escape_control_node" output="screen"></node> -->
+    <node pkg="morai_woowa" type="person_action_node" name="person_action_node" output="screen"></node>
     <!-- state launch 실행 -->
     <include file="$(find morai_woowa)/launch/state.launch"/>
 </launch>

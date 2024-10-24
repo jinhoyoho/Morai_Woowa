@@ -32,7 +32,6 @@ void calibration3::lidar_callBack(const sensor_msgs::PointCloud2ConstPtr& msg)
     for (size_t i = 0; i < cloud.size(); ++i) {
         int classId = static_cast<int>(cloud.points[i].intensity); // intensity를 클래스 ID로 변환
         classPoints[classId].emplace_back(cloud.points[i].x, cloud.points[i].y, cloud.points[i].z);
-        // intensity.emplace_back(cloud.points[i].intensity);
     }
     
     lidar_points = classPoints;
@@ -74,12 +73,8 @@ void calibration3::object_callBack1(const morai_woowa::obj_array3::ConstPtr& msg
                 bounding_boxes.push_back(box);
             }
         }
-        auto t = ros::Time::now();
-
         // 가장 가까운 이미지로 projection 함수 호출
         this->projection(frame, bounding_boxes, (*closest_msg)->type);
-
-        std::cout << "1 dt:" <<ros::Time::now() -t << std::endl;
     }
 }
 
@@ -119,13 +114,8 @@ void calibration3::object_callBack2(const morai_woowa::obj_array3::ConstPtr& msg
                 bounding_boxes.push_back(box);
             }
         }
-        auto t = ros::Time::now();
-
         // 가장 가까운 이미지로 projection 함수 호출
         this->projection(frame, bounding_boxes, (*closest_msg)->type);
-        
-        std::cout << "2 dt:" <<ros::Time::now() -t << std::endl;
-
     }
 }
 

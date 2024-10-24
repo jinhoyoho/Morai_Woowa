@@ -366,7 +366,7 @@ public:
 
     void feedback_publish(){
         as.publishFeedback(feedback.feedback);
-        if(feedback.feedback.progress_percentage > 0.99){
+        if(feedback.feedback.progress_percentage > 0.97){
             result.result.success = true;
             as.setSucceeded(result.result);
         }

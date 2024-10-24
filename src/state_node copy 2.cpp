@@ -246,6 +246,7 @@ public:
                 if (distance < min_distance) {
                     min_distance = distance;
                     closest_index = wp.index;
+                    //cross_track_error는 
                     cross_track_error = min_distance;
                 }
             }
