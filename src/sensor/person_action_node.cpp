@@ -8,7 +8,7 @@ generator()
     lidar_utm_sub = nh.subscribe("/lidar_utm", 10, &person_action_node::pointcloud_callback, this);
     current_pose_sub_ = nh.subscribe("/current_pose", 10, &person_action_node::currentPoseCallback, this);
 
-    ctrl_cmd_pub_ = nh.advertise<morai_msgs::SkidSteer6wUGVCtrlCmd>("/6wheel_skid_ctrl_cmd", 10);
+    ctrl_cmd_pub_ = nh.advertise<morai_msgs::SkidSteer6wUGVCtrlCmd>("/collision_ctrl", 10);
     astar_path_pub_ = nh.advertise<nav_msgs::Path>("/astar_path", 10);
     ld_marker_pub_= nh.advertise<visualization_msgs::Marker>("/astar_ld", 10);
     goal_marker_pub_= nh.advertise<visualization_msgs::Marker>("/astar_goal", 10);
@@ -87,7 +87,7 @@ AStar::Vec2i person_action_node::load_spot(int spot, bool is_indoor){
         if(spot == 4)
             person_spot = {-77, 7};
         else if(spot == 5)
-            person_spot = {30.8, -42.4};
+            person_spot = {30.75, -42.4};
 
     }
 
@@ -114,6 +114,12 @@ void person_action_node::execute(const morai_woowa::Person_Collision_Act2GoalCon
     
     while(ros::ok()){
 
+        if (check_collision_success()){
+            result.success = true;
+            stop(0.5);
+            break;
+        }
+
         if( (grid_goal_center_x <= world_x_limit_.x || grid_goal_center_x >= world_x_limit_.y ||
             grid_goal_center_y <= world_y_limit_.x || grid_goal_center_y >= world_y_limit_.y))
         {
@@ -137,11 +143,13 @@ void person_action_node::execute(const morai_woowa::Person_Collision_Act2GoalCon
         
         int path_size = path.size();
 
-        if (calculateDistance(path[path_size-1].x, path[path_size-1].y, grid_goal_center_x, grid_goal_center_y)> 1 ){
-            ROS_WARN("Worng path were generated!!");
-            back_move(0.5);
-            continue;
-        }
+        // if (calculateDistance(path[path_size-1].x, path[path_size-1].y, grid_goal_center_x, grid_goal_center_y)> 5 ){
+        //     ROS_WARN("Worng path were generated!!");
+        //     back_move(0.5);
+        //     continue;
+        // }
+
+        // std::cout << "clcdis" << calculateDistance(path[path_size-1].x, path[path_size-1].y, grid_goal_center_x, grid_goal_center_y) << std::endl;
 
         nav_msgs::Path path_msg;
         path_msg.header.frame_id = "map"; 
@@ -205,12 +213,6 @@ void person_action_node::execute(const morai_woowa::Person_Collision_Act2GoalCon
         ctrl_cmd.Target_linear_velocity = lin_vel;
         ctrl_cmd.Target_angular_velocity = ang_vel;
         ctrl_cmd_pub_.publish(ctrl_cmd);
-
-        if (check_collision_success()){
-            result.success = true;
-            stop(0.5)
-            break;
-        }
 
     }
     
