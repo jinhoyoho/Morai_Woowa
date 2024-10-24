@@ -58,7 +58,7 @@ void DynamicPlanning::Brake() {
 void DynamicPlanning::Rear() {
     morai_msgs::SkidSteer6wUGVCtrlCmd escape_ctrl;
     escape_ctrl.cmd_type = 3;
-    escape_ctrl.Target_linear_velocity = -2;  // 후진 속도 -2 m/s
+    escape_ctrl.Target_linear_velocity = -2.0;  // 후진 속도 -2 m/s
     escape_ctrl.Target_angular_velocity = 0;
 
     double rear_time = 2.5;  // 5m 후진

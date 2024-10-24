@@ -11,11 +11,16 @@ PurePursuitController::PurePursuitController(ros::NodeHandle& nh) :
     gpath_sub_ = nh.subscribe("/lpath", 10, &PurePursuitController::publishPath, this);  // Waypoint 구독
     current_pose_sub_ = nh.subscribe("/current_pose", 10, &PurePursuitController::getRobotStatus, this);
     odom_sub_ = nh.subscribe("/odom", 10, &PurePursuitController::odomCallback, this);
+    progress_sub_ = nh.subscribe("/progress", 10, &PurePursuitController::progressCallback, this);
     // Publisher
     ctrl_cmd_pub_ = nh.advertise<morai_msgs::SkidSteer6wUGVCtrlCmd>("/path_tracking_ctrl", 10);
     turn_180_flag_ = false;
     
     turn_cnt = 0;
+}
+
+void PurePursuitController::progressCallback(const std_msgs::Float32::ConstPtr& msg) {
+    progress = msg->data;
 }
 
 void PurePursuitController::odomCallback(const nav_msgs::Odometry::ConstPtr& msg) {
@@ -221,10 +226,11 @@ void PurePursuitController::controlLoop() {
             double dist_to_goal = hypot(last_point.x - current_position.x, last_point.y - current_position.y);
 
             // 목표 지점에 가까워지면 정지
-            if (dist_to_goal < 0.8) {  // 0.3m 이내일 때 정지
+            if (progress < 0.2) {  // 0.2m 이내일 때 정지
                 Brake();
                 speed = 0;
                 ROS_INFO("Reached final point and stopped!");
+                ROS_INFO("%lf", progress);
             }
         }
         morai_msgs::SkidSteer6wUGVCtrlCmd ctrl_cmd;
@@ -232,6 +238,9 @@ void PurePursuitController::controlLoop() {
         ctrl_cmd.Target_linear_velocity = speed;
         ctrl_cmd.Target_angular_velocity = target_angular_velocity;
         ctrl_cmd_pub_.publish(ctrl_cmd);
+
+        //확인용 출력
+        std::cout<<"speed: "<<speed<<" angular: "<<target_angular_velocity<<"\n";
         rate.sleep();
     }
 }
@@ -274,7 +283,7 @@ void PurePursuitController::Turn_180() {
         yaw_diff = (yaw_diff > M_PI)? yaw_diff - 2*M_PI : yaw_diff;
         yaw_diff = (yaw_diff < -M_PI)? yaw_diff + 2*M_PI : yaw_diff;
 
-        std::cout << yaw_diff << " : yaw_diff" << std::endl; 
+        // std::cout << yaw_diff << " : yaw_diff" << std::endl; 
 
         float lin_vel = 0.0;
         float ang_vel = 0.5;

@@ -4,6 +4,7 @@
 #include <visualization_msgs/Marker.h>
 #include <visualization_msgs/MarkerArray.h>
 #include <geometry_msgs/Point.h>
+#include <geometry_msgs/PoseStamped.h>
 #include <pcl/point_cloud.h>
 #include <pcl/point_types.h>
 #include <morai_woowa/average_points_array.h>
@@ -12,6 +13,8 @@
 #include <vector>
 #include <std_msgs/Header.h>
 #include <cmath>
+#include <tf/tf.h>                          
+#include <Eigen/Dense>  
 
 //2024 09 29 원래 icp로 장애물 추적하려고 했는데 장애물 모양이 계속 달라져서 추적하기 어려움 -> 다시 확인해보니 추적은 되는데 한 프레임만으로 움직임을 정하는게 어려움, 오차가 꽤 큼. 그래서 10프레임을 모아서 정해야겠다
 //2024 10 01 obstacle topic에 장애물 정보 publish x:x좌표, y:y좌표, z:x방향속도, i:y방향속도 + tracking 초기에 낮은 속도가 나오던 버그 수정
@@ -20,6 +23,7 @@ pcl::PointCloud<pcl::PointXYZI>::Ptr cloud_ptr(new pcl::PointCloud<pcl::PointXYZ
 pcl::PointCloud<pcl::PointXYZ>::Ptr center_points_ptr(new pcl::PointCloud<pcl::PointXYZ>());
 pcl::PointCloud<pcl::PointXYZ>::Ptr translation_ptr(new pcl::PointCloud<pcl::PointXYZ>());
 pcl::PointCloud<pcl::PointXYZI>::Ptr obstacle_ptr(new pcl::PointCloud<pcl::PointXYZI>());
+geometry_msgs::PoseStamped current_pose;
 
 auto cloud_msg_ptr = std::make_shared<sensor_msgs::PointCloud2>();
 auto obstacle_msg_ptr = std::make_shared<sensor_msgs::PointCloud2>();
@@ -29,6 +33,7 @@ auto center_points_history_ptr = std::make_shared<std::vector<pcl::PointCloud<pc
 
 void cluster_callback(const sensor_msgs::PointCloud2::ConstPtr& msg);
 void person_callback(const morai_woowa::average_points_array::ConstPtr& msg);
+void pose_callback(const geometry_msgs::PoseStamped &msg);
 pcl::PointXYZ get_center(pcl::PointCloud<pcl::PointXYZI>::Ptr cloud_ptr);
 void tracking();
 void make_arrows(ros::Publisher& marker_pub);
@@ -45,6 +50,7 @@ int main(int argc, char **argv){
     // ros::Subscriber cluster_sub = nh.subscribe("clustered_points", 10, cluster_callback);
     // ros::Subscriber cluster_sub = nh.subscribe("lidar_utm", 10, cluster_callback);
     ros::Subscriber person_sub = nh.subscribe("/average_points", 10, person_callback);
+    ros::Subscriber pose_sub = nh.subscribe("current_pose", 10, pose_callback);
     
     ros::Publisher marker_array_pub = nh.advertise<visualization_msgs::Marker>("visualization_marker_array", 10);
     ros::Publisher obstacle_pub = nh.advertise<sensor_msgs::PointCloud2>("obstacle", 10);
@@ -65,6 +71,11 @@ int main(int argc, char **argv){
     return 0;
 }
 
+void pose_callback(const geometry_msgs::PoseStamped &msg)
+{
+    current_pose = msg;
+}
+
 void person_callback(const morai_woowa::average_points_array::ConstPtr& msg){
     center_points_ptr->clear();
 
@@ -77,6 +88,47 @@ void person_callback(const morai_woowa::average_points_array::ConstPtr& msg){
             (*center_points_ptr)[i].y = msg->points_array[i].average_y;
             (*center_points_ptr)[i].z = msg->points_array[i].average_z;
         }
+
+
+        // 쿼터니언으로부터 회전 행렬 생성
+        tf::Quaternion q(
+            current_pose.pose.orientation.x,
+            current_pose.pose.orientation.y,
+            current_pose.pose.orientation.z,
+            current_pose.pose.orientation.w
+        );
+
+        tf::Matrix3x3 rotation_matrix(q);
+        
+        // 변환 행렬을 수동으로 설정
+        Eigen::Matrix4d transform = Eigen::Matrix4d::Identity();
+        for (int i = 0; i < 3; i++) {
+            for (int j = 0; j < 3; j++) {
+                transform(i, j) = rotation_matrix[i][j];
+            }
+        }
+
+        // 위치 값 설정
+        // transform(0, 3) = static_cast<double>(current_pose.pose.position.x);
+        // transform(1, 3) = static_cast<double>(current_pose.pose.position.y);
+        // transform(2, 3) = static_cast<double>(current_pose.pose.position.z);
+
+        // 포인트 클라우드 변환
+        for (auto& point : center_points_ptr->points) {
+            point.x += 0.42;
+
+            // 회전 변환
+            auto x = transform(0, 0) * point.x + transform(0, 1) * point.y + transform(0, 2) * point.z + current_pose.pose.position.x;//transform(0, 3);
+            auto y = transform(1, 0) * point.x + transform(1, 1) * point.y + transform(1, 2) * point.z + current_pose.pose.position.y;//transform(1, 3);
+            auto z = transform(2, 0) * point.x + transform(2, 1) * point.y + transform(2, 2) * point.z + current_pose.pose.position.z;//transform(2, 3);
+
+            // 변환된 포인트를 클라우드에 추가
+            point.x = x;
+            point.y = y;
+            point.z = z;
+        }
+
+
         center_points_history_ptr->push_back((*center_points_ptr));
 
         if(center_points_history_ptr->size() > hz){
@@ -226,7 +278,6 @@ void tracking(){
             }
         }
     }
-    std::cout<<translation_ptr->size()<<"\n";
 
 }
 
@@ -234,8 +285,6 @@ void tracking(){
 void make_arrows(ros::Publisher& marker_pub) {
     // 기존 마커들을 삭제
     for (int i = 0; i < arrow_array_ptr->markers.size(); i++) {
-        std::cout<<"delete"<<std::endl;
-        std::cout<<i<<std::endl;
         visualization_msgs::Marker delete_marker;
         delete_marker.header.frame_id = "map";  // 'map' 좌표계 기준
         delete_marker.header.stamp = ros::Time::now();
@@ -270,9 +319,6 @@ void make_arrows(ros::Publisher& marker_pub) {
 
         // 화살표 시작점과 끝점을 설정
         geometry_msgs::Point start_point;
-        std::cout<<"tp"<<translation_ptr->size()<<std::endl;
-        std::cout<<"tp"<<translation_ptr->at(0)<<std::endl;
-        std::cout<<"cp"<<center_points_ptr->size()<<std::endl;
         start_point.x = center_points_ptr->at(i).x;  // X축을 따라 화살표가 멀어지도록 설정
         start_point.y = center_points_ptr->at(i).y;
         start_point.z = 0.0;

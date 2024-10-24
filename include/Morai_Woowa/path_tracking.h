@@ -2,6 +2,7 @@
 #define PATH_TRACKING_H
 
 #include <ros/ros.h>
+#include <std_msgs/Float32.h>
 #include <nav_msgs/Path.h>
 #include <geometry_msgs/PoseStamped.h>
 #include "Morai_Woowa/way_point.h"
@@ -19,6 +20,8 @@ public:
     void getRobotStatus(const geometry_msgs::PoseStamped::ConstPtr& pose_msg);
     // odom 콜백 함수
     void odomCallback(const nav_msgs::Odometry::ConstPtr& msg); 
+
+    void progressCallback(const std_msgs::Float32::ConstPtr& msg) ;
     // 스티어링 각도를 계산
     double steering_angle();
     double calculateCurvature();
@@ -33,6 +36,7 @@ private:
     ros::Subscriber gpath_sub_;     // 경로 서브스크라이버
     ros::Subscriber current_pose_sub_; // 로봇 위치 서브스크라이버
     ros::Subscriber odom_sub_;
+    ros::Subscriber progress_sub_;
 
     path waypoint_path;
     Waypoint forward_point;
@@ -47,6 +51,7 @@ private:
     bool is_look_forward_point;
     ros::Time previous_time;
     double previous_heading;
+    double progress;
 
     int turn_cnt;
 

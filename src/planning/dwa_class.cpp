@@ -1,5 +1,6 @@
 #include <ros/ros.h>
 #include <ros/package.h>
+#include <std_msgs/Float32.h>
 #include <sensor_msgs/PointCloud.h>
 #include <geometry_msgs/Point32.h>
 #include <geometry_msgs/PoseStamped.h>
@@ -29,6 +30,7 @@ public:
             candidate_pub = nh.advertise<sensor_msgs::PointCloud>("/candidate_path", 10);
             lpath_pub = nh.advertise<nav_msgs::Path>("lpath", 10);
             gpath_pub = nh.advertise<nav_msgs::Path>("gpath", 10);
+            progress_pub = nh.advertise<std_msgs::Float32>("progress", 10);
 
             obstacle_sub = nh.subscribe("obstacle", 10, &Dwa::obstacle_callback, this);
             pose_sub = nh.subscribe("current_pose", 10, &Dwa::pose_callback, this);
@@ -45,30 +47,24 @@ public:
 
         //성공할 때 까지 반복
         while(result.result.success == false){
-            auto start = ros::Time::now();
             ros::spinOnce();
-            cout<<"size"<<global_path_ptr->size()<<endl;
             //내 위치 기준으로 앞으로 갈 path만 자르기
             gpath_cut();
-            cout<<"gpc"<<ros::Time::now()-start<<endl;
-             start = ros::Time::now();
 
             //후보경로 생성
             make_candidate_path();
-            cout<<"mcp"<<ros::Time::now()-start<<endl;
-             start = ros::Time::now();
+            
             //cost 계산하기
             vote_president_path();
-            cout<<"vpp"<<ros::Time::now()-start<<endl;
-             start = ros::Time::now();
+
             //msg형식으로 만들어서 publish
             msgs_publish();
-            cout<<"mp"<<ros::Time::now()-start<<endl;
-             start = ros::Time::now();
+
             //progress 계산 후 action 처리
             feedback_publish();
-            cout<<"fp"<<ros::Time::now()-start<<endl;
-             start = ros::Time::now();
+
+            cout<<"============="<<"\n";
+
             rate.sleep();
         }
     }
@@ -170,6 +166,8 @@ public:
             }
         }
 
+        path_normal_distance = closet_dis;
+
         if(idx == -1){
             idx = closet_idx;
         }
@@ -180,8 +178,8 @@ public:
             sliced.resize(predict_time * 10);
         }
 
-
-        float progress = (float)closet_idx / (float)global_path_ptr->size();
+        
+        auto progress = calculateDistance({(*global_path_ptr).back()[0], (*global_path_ptr).back()[1], 0.0}, {(*pose_ptr)[0] , (*pose_ptr)[1] , 0.0});
         
         feedback.feedback.progress_percentage = progress;
 
@@ -359,9 +357,6 @@ public:
         gpath_msg_ptr->header.frame_id = "map";
         gpath_msg_ptr->header.stamp = ros::Time::now();
         
-        cout<<"lp"<<lpath_msg_ptr->poses.size()<<endl;
-        cout<<"gp"<<gpath_msg_ptr->poses.size()<<endl;
-        cout<<"cp"<<candidate_msg_ptr->points.size()<<endl;
         lpath_pub.publish(*lpath_msg_ptr);
         gpath_pub.publish(*gpath_msg_ptr);
         candidate_pub.publish(*candidate_msg_ptr);
@@ -369,8 +364,21 @@ public:
 
     void feedback_publish(){
         as.publishFeedback(feedback.feedback);
-        if(feedback.feedback.progress_percentage > 0.97){
+
+        std_msgs::Float32 progress_msg;
+        progress_msg.data = feedback.feedback.progress_percentage;
+        progress_pub.publish(progress_msg);
+
+        // 99% 이상이거나 90% 이상이고 갑자기 거리가 멀어지면 순간이동 성공으로 판단해 성공 반환
+        if(feedback.feedback.progress_percentage < 0.2 
+            || ( (feedback.feedback.progress_percentage > 0.5) && (path_normal_distance > 100.0) ) ){
             result.result.success = true;
+
+            // 성공반환할때 progress를 0으로 바꿈
+            feedback.feedback.progress_percentage = 0;
+            progress_msg.data = feedback.feedback.progress_percentage;
+            progress_pub.publish(progress_msg);
+
             as.setSucceeded(result.result);
         }
     }
@@ -382,6 +390,7 @@ private:
     ros::Publisher lpath_pub;
     ros::Subscriber obstacle_sub;
     ros::Publisher gpath_pub;
+    ros::Publisher progress_pub;
     ros::Subscriber pose_sub;
     
     int num_of_path = 15;
@@ -389,6 +398,7 @@ private:
     double velocity = 1.0;
     double angular_velocity = 0.5;
     double global_path_cost = 0.1;
+    double path_normal_distance = 0.0; //path와 현재 위치 수직거리
 
     actionlib::SimpleActionServer<morai_woowa::Planning_Tracking_ActAction> as;
     morai_woowa::Planning_Tracking_ActActionResult result;
