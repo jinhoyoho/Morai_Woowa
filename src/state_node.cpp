@@ -110,7 +110,7 @@ public:
         
         delivery_pickup_client_.call(deli_srv);  // 서비스 요청
 
-        std::cout << deli_srv.response.response.result <<"\n";
+        // std::cout << deli_srv.response.response.result <<"\n";
 
         return deli_srv.response.response.result; // 결과
     } 

@@ -251,7 +251,7 @@ public:
                         (*future_obstacle_ptr)[k][2] = 0.0;
 
                         auto distance = calculateDistance(current_candidate[current_time_idx], (*future_obstacle_ptr)[k]);
-                        if(distance < 1.5){
+                        if(distance < 1.0){
                             current_cost += 9999;
                         }
                     }
@@ -264,7 +264,7 @@ public:
 
                 std::cout<<path_idx<<" cost: "<<current_cost<<std::endl;
 
-                if(path_idx == 0 & current_cost < 9999){
+                if(path_idx == 0 && current_cost < 9999 && path_normal_distance < 1.0){
                     best_idx = path_idx;
                     best_cost = current_cost;
                     break;
@@ -274,7 +274,14 @@ public:
                     best_idx = path_idx;
                     best_cost = current_cost;
                 }
+
             }
+
+            if(best_cost > 9999){
+                //가장 낮은 cost도 9999 넘으면 멈춤
+                stop_flag = true;
+            }
+
             //best path를 president에 복사
             president_path_ptr->clear();
             for(int j = 0; j < remain_global_path_ptr->size(); j++){
@@ -381,6 +388,13 @@ public:
 
             as.setSucceeded(result.result);
         }
+
+        else if(stop_flag == true){
+            //progress를 0으로 바꿔서 멈추게 함
+            feedback.feedback.progress_percentage = 0;
+            progress_msg.data = feedback.feedback.progress_percentage;
+            progress_pub.publish(progress_msg);
+        }
     }
 
 
@@ -399,6 +413,7 @@ private:
     double angular_velocity = 0.5;
     double global_path_cost = 0.1;
     double path_normal_distance = 0.0; //path와 현재 위치 수직거리
+    bool stop_flag = false;
 
     actionlib::SimpleActionServer<morai_woowa::Planning_Tracking_ActAction> as;
     morai_woowa::Planning_Tracking_ActActionResult result;
