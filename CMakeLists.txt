@@ -14,7 +14,7 @@ find_package(catkin REQUIRED COMPONENTS
   sensor_msgs
   geometry_msgs
   nav_msgs
-  tf  # tf 라이브러리 추가
+  tf 
   actionlib
   actionlib_msgs
 )
@@ -142,8 +142,8 @@ target_link_libraries(global_path ${catkin_LIBRARIES})
 add_executable(path_tracking src/planning/path_tracking.cpp)
 target_link_libraries(path_tracking ${catkin_LIBRARIES})
 
-add_executable(dynamic_planning src/planning/dynamic_planning.cpp)
-target_link_libraries(dynamic_planning ${catkin_LIBRARIES})
+add_executable(escape_control_node src/planning/escape_control_node.cpp)
+target_link_libraries(escape_control_node ${catkin_LIBRARIES})
 
 add_executable(control_node src/control_node.cpp)
 target_link_libraries(control_node ${catkin_LIBRARIES})
