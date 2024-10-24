@@ -1,5 +1,5 @@
 #include <ros/ros.h>
-#include <ros/package.h>  
+#include <ros/package.h>
 #include <geometry_msgs/PoseStamped.h>
 #include <visualization_msgs/Marker.h>
 #include <tf/transform_datatypes.h>
@@ -447,88 +447,79 @@ public:
             // return: (int) arrival point (1번~5번) 지점
             // 실패하면 0 반환
 
+            starting_point = 0;
+            arrival_point = 4;
+            is_indoor = true;
+            arrival_result = 0;
+            // 도착할때까지 while문 반복
+            change_control_mode(1);  // planning mode 로 실행
+            while(ros::ok() && arrival_result != arrival_point){
+                arrival_result = request_planning(starting_point, arrival_point, is_indoor);    
+                std::cout << "arrival_result " << arrival_result << std::endl;
+            }
+
+            // pickup
+            item_index = 4;
+            delivery_result = false;
+            while(ros::ok() && !delivery_result){
+                delivery_result = pickup(item_index);    
+            }
+
+            // srv를 request 함수에 넣게되면 계속해서 서비스를 요청하게 됨 -> escape mode를 사용할 수 없게됨
+            // 따라서 requeset 하기 전에 모드를 바꾸는게 좋을 것 같음
+            change_control_mode(2);
+            is_indoor = true;
+            collision_person = 4;
+            request_collision_to_person(collision_person, is_indoor);   // 실내에 있는 4번 사람 충돌하기
+
+            // teleport 이후에 5번으로 이동
+            starting_point = 0;
+            arrival_point = 5;
+            is_indoor = true;
+            arrival_result = 0;
+            change_control_mode(1);  // planning mode 로 실행
+            while(ros::ok() && arrival_result != arrival_point){
+                arrival_result = request_planning(starting_point, arrival_point, is_indoor);    
+                std::cout << "arrival_result " << arrival_result << std::endl;
+            }
+
+            // 5번 pickup
+            item_index = 5;
+            delivery_result = false;
+            while(ros::ok() && !delivery_result){
+                delivery_result = pickup(item_index);    
+            }
 
 
+            change_control_mode(2);
+            is_indoor = true;
+            collision_person = 5;
+            request_collision_to_person(collision_person, is_indoor);   // 실내에 있는 5번 사람 충돌하기
 
 
+            // 밖으로 이동
+            starting_point = 6;
+            arrival_point = 7;
+            is_indoor = true;
+            arrival_result = 0;
+            // 도착할때까지 while문 반복
+            change_control_mode(1);  // planning mode 로 실행
+            while(ros::ok() && arrival_result != arrival_point){
+                arrival_result = request_planning(starting_point, arrival_point, is_indoor);    
+                std::cout << "arrival_result " << arrival_result << std::endl;
+            }
 
-
-
-
-
-            // starting_point = 0;
-            // arrival_point = 4;
-            // is_indoor = true;
-            // arrival_result = 0;
-            // // 도착할때까지 while문 반복
-            // change_control_mode(1);  // planning mode 로 실행
-            // while(ros::ok() && arrival_result != arrival_point){
-            //     arrival_result = request_planning(starting_point, arrival_point, is_indoor);    
-            //     std::cout << "arrival_result " << arrival_result << std::endl;
-            // }
-
-            // // pickup
-            // item_index = 4;
-            // delivery_result = false;
-            // while(ros::ok() && !delivery_result){
-            //     delivery_result = pickup(item_index);    
-            // }
-
-            // // srv를 request 함수에 넣게되면 계속해서 서비스를 요청하게 됨 -> escape mode를 사용할 수 없게됨
-            // // 따라서 requeset 하기 전에 모드를 바꾸는게 좋을 것 같음
-            // change_control_mode(2);
-            // is_indoor = true;
-            // collision_person = 4;
-            // request_collision_to_person(collision_person, is_indoor);   // 실내에 있는 4번 사람 충돌하기
-
-            // // teleport 이후에 5번으로 이동
-            // starting_point = 0;
-            // arrival_point = 5;
-            // is_indoor = true;
-            // arrival_result = 0;
-            // change_control_mode(1);  // planning mode 로 실행
-            // while(ros::ok() && arrival_result != arrival_point){
-            //     arrival_result = request_planning(starting_point, arrival_point, is_indoor);    
-            //     std::cout << "arrival_result " << arrival_result << std::endl;
-            // }
-
-            // // 5번 pickup
-            // item_index = 5;
-            // delivery_result = false;
-            // while(ros::ok() && !delivery_result){
-            //     delivery_result = pickup(item_index);    
-            // }
-
-
-            // change_control_mode(2);
-            // is_indoor = true;
-            // collision_person = 5;
-            // request_collision_to_person(collision_person, is_indoor);   // 실내에 있는 5번 사람 충돌하기
-
-
-            // // 밖으로 이동
-            // starting_point = 6;
-            // arrival_point = 7;
-            // is_indoor = true;
-            // arrival_result = 0;
-            // // 도착할때까지 while문 반복
-            // change_control_mode(1);  // planning mode 로 실행
-            // while(ros::ok() && arrival_result != arrival_point){
-            //     arrival_result = request_planning(starting_point, arrival_point, is_indoor);    
-            //     std::cout << "arrival_result " << arrival_result << std::endl;
-            // }
-
-            // // 7번 -> 5번 배달
-            // starting_point = 7;
-            // arrival_point = 5;
-            // is_indoor = false; // 야외 
-            // arrival_result = 0;
-            // // 도착할때까지 while문 반복
-            // change_control_mode(1);  // planning mode 로 실행
-            // while(ros::ok() && arrival_result != arrival_point){
-            //     arrival_result = request_planning(starting_point, arrival_point, is_indoor);    
-            //     std::cout << "arrival_result " << arrival_result << std::endl;
-            // }
+            // 7번 -> 5번 배달
+            starting_point = 7;
+            arrival_point = 5;
+            is_indoor = false; // 야외 
+            arrival_result = 0;
+            // 도착할때까지 while문 반복
+            change_control_mode(1);  // planning mode 로 실행
+            while(ros::ok() && arrival_result != arrival_point){
+                arrival_result = request_planning(starting_point, arrival_point, is_indoor);    
+                std::cout << "arrival_result " << arrival_result << std::endl;
+            }
 
             // 배달
             item_index = 5;

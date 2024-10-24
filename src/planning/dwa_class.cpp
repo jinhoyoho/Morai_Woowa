@@ -1,4 +1,5 @@
 #include <ros/ros.h>
+#include <ros/package.h>
 #include <sensor_msgs/PointCloud.h>
 #include <geometry_msgs/Point32.h>
 #include <geometry_msgs/PoseStamped.h>
@@ -101,8 +102,10 @@ public:
 
     void load_path(std::string path_name, bool is_reverse){
         global_path_ptr->clear();
-        
-        auto file_name = "/home/user/catkin_ws/src/Morai_Woowa/path/" + path_name;
+
+        auto file_name = ros::package::getPath("morai_woowa") + "/path/" + path_name;
+        // auto file_name = "/home/user/catkin_ws/src/Morai_Woowa/path/" + path_name;
+
         std::ifstream file(file_name);
         if (!file.is_open()) {
             ROS_ERROR("Failed to open file.");
