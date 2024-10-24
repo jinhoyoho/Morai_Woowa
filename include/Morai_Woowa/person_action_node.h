@@ -51,10 +51,7 @@ private:
     actionlib::SimpleActionServer<morai_woowa::Person_Collision_Act2Action> PCAserver_;
     AStar::Generator generator;
 
-    person closest_person_;
-    float person_range_;
     bool is_target;
-    double averageDistance;
     ros::Time last_target_found_time_;
 
     float current_x_;
@@ -65,7 +62,7 @@ private:
 
     float world_size_limit_;
 
-    float collision_enable_dis_;
+    float erase_obs_from_person_dis_;
 
     AStar::Vec2i world_x_limit_;
     AStar::Vec2i world_y_limit_;
@@ -80,6 +77,9 @@ public:
     bool check_collision_success();
     void pub_marker_astar_LD(float LD_x, float LD_y);
     void pub_marker_astar_goal(float goal_x, float goal_y);
+    void back_move(float t);
+    void stop(float t);
+
 
     void pointcloud_callback(const sensor_msgs::PointCloud2::ConstPtr& msg);
     AStar::Vec2i load_spot(int spot, bool is_indoor);

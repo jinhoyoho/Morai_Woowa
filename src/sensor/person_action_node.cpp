@@ -14,27 +14,21 @@ generator()
     goal_marker_pub_= nh.advertise<visualization_msgs::Marker>("/astar_goal", 10);
     rviz_pointcloud_pub_ = nh.advertise<sensor_msgs::PointCloud2>("astar_points_cloud", 1);
 
-    //초기 range
-    closest_person_.x = 0;
-    closest_person_.y = 0;
-
     current_x_ = 0;
     current_y_ = 0;
 
     last_target_found_time_ = ros::Time::now();
-    double averageDistance = 9999999;
 
     world_size_limit_ = 5;
-    collision_enable_dis_ = 10;
-
     grid_size_ = 0.1;
+
+    erase_obs_from_person_dis_ = 0.9;
 
     generator.setHeuristic(AStar::Heuristic::euclidean);
     generator.setBackMovement(true);
     generator.setGridSize(grid_size_);
     generator.setCollisionDis(0.4);
     generator.setCollisionDis_sub(0.2);
-
 }
 
 bool person_action_node::check_collision_success(){
@@ -60,6 +54,28 @@ bool person_action_node::check_collision_success(){
     else{
         ROS_WARN("teleport fail");
         return false;
+    }
+}
+
+void person_action_node::back_move(float dur_t){
+    auto t = ros::Time::now();
+    while(ros::Time::now()-t < ros::Duration(dur_t)){
+        morai_msgs::SkidSteer6wUGVCtrlCmd ctrl_cmd;
+        ctrl_cmd.cmd_type = 3;
+        ctrl_cmd.Target_linear_velocity = -1.0;
+        ctrl_cmd.Target_angular_velocity = 0;//target_angular_velocity;
+        ctrl_cmd_pub_.publish(ctrl_cmd);
+    }
+}
+
+void person_action_node::stop(float dur_t){
+    auto t = ros::Time::now();
+    while(ros::Time::now()-t < ros::Duration(dur_t)){
+        morai_msgs::SkidSteer6wUGVCtrlCmd ctrl_cmd;
+        ctrl_cmd.cmd_type = 3;
+        ctrl_cmd.Target_linear_velocity = 0.0;
+        ctrl_cmd.Target_angular_velocity = 0;//target_angular_velocity;
+        ctrl_cmd_pub_.publish(ctrl_cmd);
     }
 }
 
@@ -93,6 +109,8 @@ void person_action_node::execute(const morai_woowa::Person_Collision_Act2GoalCon
     float grid_goal_y_ = static_cast<int>(goal_person_.y / grid_size_);
     float grid_goal_center_x = grid_goal_x_ * grid_size_ + grid_size_ / 2.0f;
     float grid_goal_center_y = grid_goal_y_ * grid_size_ + grid_size_ / 2.0f;
+
+    back_move(1);
     
     while(ros::ok()){
 
@@ -100,7 +118,8 @@ void person_action_node::execute(const morai_woowa::Person_Collision_Act2GoalCon
             grid_goal_center_y <= world_y_limit_.x || grid_goal_center_y >= world_y_limit_.y))
         {
             ROS_WARN("TOO far !!");
-            continue;
+            result.success = false;
+            break;
         }
 
         ros::spinOnce();
@@ -109,49 +128,46 @@ void person_action_node::execute(const morai_woowa::Person_Collision_Act2GoalCon
 
         float grid_current_x_ = static_cast<int>(current_x_ / grid_size_);
         float grid_current_y_ = static_cast<int>(current_y_ / grid_size_);
-
         float grid_current_center_x = grid_current_x_ * grid_size_ + grid_size_ / 2.0f;
         float grid_current_center_y = grid_current_y_ * grid_size_ + grid_size_ / 2.0f;
 
         pub_marker_astar_goal(grid_goal_center_x, grid_goal_center_y);
 
         auto path = generator.findPath({grid_current_center_x, grid_current_center_y}, {grid_goal_center_x, grid_goal_center_y});
+        
+        int path_size = path.size();
+
+        if (calculateDistance(path[path_size-1].x, path[path_size-1].y, grid_goal_center_x, grid_goal_center_y)> 1 ){
+            ROS_WARN("Worng path were generated!!");
+            back_move(0.5);
+            continue;
+        }
 
         nav_msgs::Path path_msg;
         path_msg.header.frame_id = "map"; 
-
         for(auto& coordinate : path) {
-            
             geometry_msgs::PoseStamped pose;
             pose.header.frame_id = "map";
             pose.pose.position.x = coordinate.x;
             pose.pose.position.y = coordinate.y;
             pose.pose.position.z = 0.0;
             pose.pose.orientation.w = 1.0;
-
             path_msg.poses.push_back(pose);
-
             }
-
         astar_path_pub_.publish(path_msg);
         
-        int size = path.size();
 
-        int index = std::max(size - 10, 0);
-
-        // 뒤에서 10번째 요소 가져오기
-        auto LD_point = path[index];
+        int ld_index = std::max(path_size - 10, 0);
+        auto LD_point = path[ld_index];
         float LD_x = LD_point.x;
         float LD_y = LD_point.y;
-
         pub_marker_astar_LD(LD_x, LD_y);
 
         // feedback.dis = is_target;
         
         // PCAserver_.publishFeedback(feedback);
-        // double ly = atan2(LD_y, LD_x);
-        double ly = atan2(LD_y - current_y_, LD_x - current_x_);
 
+        double ly = atan2(LD_y - current_y_, LD_x - current_x_);
 
         double d_yaw = ly - current_yaw_;
 
@@ -161,29 +177,24 @@ void person_action_node::execute(const morai_woowa::Person_Collision_Act2GoalCon
         std::cout << d_yaw << " : d_yaw" << std::endl; 
         std::cout << ly << " : l_yaw" << std::endl; 
         std::cout << current_yaw_ << " : current_yaw_" << std::endl; 
-        std::cout << size << " : path size" << std::endl; 
-
+        std::cout << path_size << " : path size" << std::endl; 
 
 
         float lin_vel = 0.1;
         float ang_vel = 0.0;
 
-        if(abs(d_yaw) < 15*M_PI/180)
-        { 
+        if(abs(d_yaw) < 15*M_PI/180){ 
         lin_vel = 2.0;
         ang_vel = 0.0;
         }
-        else
-        {
+        else{
             // lin_vel = 0.0;
             // ang_vel = 0.4;
-            if(d_yaw > 0)
-            {
+            if(d_yaw > 0){
             lin_vel = 0.0;
             ang_vel = -0.3;
             }
-            else 
-            {
+            else {
             lin_vel = 0.0;
             ang_vel = 0.3;
             }
@@ -197,6 +208,7 @@ void person_action_node::execute(const morai_woowa::Person_Collision_Act2GoalCon
 
         if (check_collision_success()){
             result.success = true;
+            stop(0.5)
             break;
         }
 
@@ -313,7 +325,7 @@ void person_action_node::pointcloud_callback(const sensor_msgs::PointCloud2::Con
             if (unique_points.insert(temp_point).second) {
                 
                 // 중복되지 않을 경우만 astar_point_vector_에 추가
-                if(calculateDistance(grid_current_center_x, grid_current_center_y, goal_person_.x, goal_person_.y) < 0.9)
+                if(calculateDistance(grid_current_center_x, grid_current_center_y, goal_person_.x, goal_person_.y) < erase_obs_from_person_dis_)
                     continue;
 
                 astar_point_vector_.push_back({grid_current_center_x, grid_current_center_y});
