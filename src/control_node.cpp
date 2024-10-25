@@ -12,7 +12,10 @@ control_node::control_node(ros::NodeHandle& nh)
     path_tracking_sub_ = nh.subscribe("/path_tracking_ctrl", 1, &control_node::callBack_1, this);
     collision_sub_ = nh.subscribe("/collision_ctrl", 1, &control_node::callBack_2, this);
     escape_sub_ = nh.subscribe("/escape_ctrl", 1, &control_node::callBack_3, this);
+    state_sub_ = nh.subscribe("/state_ctrl", 1, &control_node::callBack_4, this);
     control_pub_ = nh.advertise<morai_msgs::SkidSteer6wUGVCtrlCmd>("/6wheel_skid_ctrl_cmd", 10);
+    mode_pub_ = nh.advertise<std_msgs::Int8>("/mode", 10);
+
     
     // 서비스 서버
     control_server_ = nh.advertiseService("/Control_srv", &control_node::change_mode, this);
@@ -57,8 +60,25 @@ void control_node::callBack_3(const morai_msgs::SkidSteer6wUGVCtrlCmdPtr& msg)
     }
 }
 
+void control_node::callBack_4(const morai_msgs::SkidSteer6wUGVCtrlCmdPtr& msg)
+{
+    // plannig_tracking mode일 때 실행
+    if(mode == 4)
+    {
+        ROS_INFO("Mode: %d", mode);
+
+        cmd_type = msg->cmd_type;
+        Target_angular_velocity = msg->Target_angular_velocity;
+        Target_linear_velocity = msg->Target_linear_velocity;
+    }
+}
+
 void control_node::publish_ctrl()
 {
+    std_msgs::Int8 mode_msg;
+    mode_msg.data = mode;
+    mode_pub_.publish(mode_msg);
+
     morai_msgs::SkidSteer6wUGVCtrlCmd msg;
     msg.cmd_type = cmd_type;
     msg.Target_angular_velocity = Target_angular_velocity;

@@ -190,7 +190,7 @@ void PurePursuitController::controlLoop() {
     while (ros::ok()) {
         ros::spinOnce();  // 콜백 함수 호출
 
-        if(turn_180_flag_ && turn_cnt > 15)
+        if(turn_180_flag_ && turn_cnt > 3)
             Turn_180();
 
         double angle = steering_angle();
@@ -226,7 +226,8 @@ void PurePursuitController::controlLoop() {
             double dist_to_goal = hypot(last_point.x - current_position.x, last_point.y - current_position.y);
 
             // 목표 지점에 가까워지면 정지
-            if (progress < 0.2) {  // 0.2m 이내일 때 정지
+            // 완전 0인 경우는 튕겨서 부딪히는 경우
+            if ((0.0 < progress) && (progress < 0.2)) {  // 0.2m 이내일 때 정지
                 Brake();
                 speed = 0;
                 ROS_INFO("Reached final point and stopped!");

@@ -6,6 +6,7 @@
 
 #include "morai_msgs/WoowaDillyEventCmdSrv.h"
 #include "morai_msgs/WoowaDillyStatus.h"
+#include <morai_msgs/SkidSteer6wUGVCtrlCmd.h>
 
 #include <actionlib/client/simple_action_client.h>
 #include "morai_woowa/Planning_Tracking_ActAction.h"
@@ -52,6 +53,9 @@ public:
 
         delivery_pickup_client_ = nh_.serviceClient<morai_msgs::WoowaDillyEventCmdSrv>("/WoowaDillyEventCmd"); // 배달, 픽업 용 서비스, 모라이 서버와 통신
         control_mode_client_ = nh_.serviceClient<morai_woowa::ControlSrv>("/Control_srv"); // 컨트롤 노드
+
+        state_pub_ = nh_.advertise<morai_msgs::SkidSteer6wUGVCtrlCmd>("/state_ctrl", 10);
+
 
         if (planning_tracking_ac_.waitForServer(ros::Duration(5.0))) {  // 5초 대기
             ROS_INFO("Connected to planning_tracking server");
@@ -104,12 +108,29 @@ public:
     // 배달 함수
     bool delivery(int item_index){
 
+        bool have_it = false;
+
+        for(auto i : dilly_item_status_list_){
+            if(i == item_index){
+                ROS_INFO("I have it");
+                have_it = true;
+            }
+        }
+        // 가지고 있지 않으면 다음으로 넘기기
+        if(!have_it)
+        {
+            ROS_INFO("I don't have it.");
+            return true;
+        }
+
         morai_msgs::WoowaDillyEventCmdSrv deli_srv;
         deli_srv.request.request.isPickup = false; // 배달 준비완료
         deli_srv.request.request.deliveryItemIndex = item_index; // 배달할 아이템 번호
-        
-        delivery_pickup_client_.call(deli_srv);  // 서비스 요청
+        delivery_pickup_client_.call(deli_srv); // 서비스 요청
 
+        ROS_INFO("Delivery");
+
+        
         // std::cout << deli_srv.response.response.result <<"\n";
 
         return deli_srv.response.response.result; // 결과
@@ -127,8 +148,8 @@ public:
 
         morai_msgs::WoowaDillyEventCmdSrv pick_srv;
         pick_srv.request.request.deliveryItemIndex = item_index; // 아이템 번호
-        pick_srv.request.request.isPickup = true; // 준비 완료
-
+        pick_srv.request.request.isPickup = true; // pickup
+        // stop(0.5);
         delivery_pickup_client_.call(pick_srv); // 요청
 
         bool result = pick_srv.response.response.result; // 결과
@@ -163,6 +184,8 @@ public:
             // 플래닝 액션 성공하면 true로
             is_reach_target_point_ = true;
             std::cout << "state node : planning action finished successfully" << std::endl;
+            change_control_mode(4);
+            stop();
         } 
         else {
             is_reach_target_point_ = false;
@@ -274,7 +297,9 @@ public:
         
         // target point에 도달했는지 -> DoneCb에서 갱신
         if(is_reach_target_point_)
+        {
             return arrival_point; 
+        }
         else
             return 0;
     }
@@ -305,7 +330,9 @@ public:
         }
 
         if(is_success_collision_)
+        {
             return true; 
+        }
         else
             return false;
     }
@@ -346,77 +373,14 @@ public:
         }
     }
 
-    // 도착했는지 여부 확인
-    bool check_arrival_success(int point, bool indoor){
-
-        float dis = 10000;
-        Spot target_spot(-99999,-99999);
-
-        // 실내일때
-        if(indoor)
-        { // 실내
-            if(point == 1){    
-                target_spot.x = -42.4;
-                target_spot.y = -135.0;
-            }
-            else if(point == 2){  
-                target_spot.x = 51.5;
-                target_spot.y = -41.3;
-            }
-            else if(point == 3){
-                target_spot.x = 65.2;
-                target_spot.y = 44.1;
-            }
-            else if(point == 4){ 
-                target_spot.x = -77.7;
-                target_spot.y = 7.7;
-            }
-            else if(point == 5){ 
-                target_spot.x = 30.7;
-                target_spot.y = -41.1;
-            }
-            else{
-                ROS_WARN("arrival fail >> strange type : %d", point);
-                return false;
-            }  
-        }
-        else    // 야외일때
-        {
-            if(point == 1){    
-                target_spot.x = 393.9;
-                target_spot.y = -79.5;
-            }
-            else if(point == 2){  
-                target_spot.x = 263.4;
-                target_spot.y = -79.1;
-            }
-            else if(point == 3){
-                target_spot.x = 229.8;
-                target_spot.y = -129.1;
-            }
-            else if(point == 4){ 
-                target_spot.x = 334.9;
-                target_spot.y = -117.6;
-            }
-            else if(point == 5){ 
-                target_spot.x = 372.1;
-                target_spot.y = -116.3;
-            }
-            else{
-                ROS_WARN("arrival fail >> strange type : %d", point);
-                return false;
-            }    
-        }
-        // 거리 계산
-        dis = calculateDistance(current_x_, current_y_, target_spot.x, target_spot.y);        
-
-        if (dis < 1){
-            ROS_WARN("arrival success: %d", point);
-            return true;
-        }
-        else{
-            ROS_WARN("arrival fail: %d", point);
-            return false;
+    void stop(){
+        auto t = ros::Time::now();
+        while(ros::Time::now()-t < ros::Duration(1)){
+            morai_msgs::SkidSteer6wUGVCtrlCmd ctrl_cmd;
+            ctrl_cmd.cmd_type = 3;
+            ctrl_cmd.Target_linear_velocity = 0.0;
+            ctrl_cmd.Target_angular_velocity = 0;//target_angular_velocity;
+            state_pub_.publish(ctrl_cmd);
         }
     }
 
@@ -447,6 +411,7 @@ public:
             // return: (int) arrival point (1번~5번) 지점
             // 실패하면 0 반환
 
+
             starting_point = 0;
             arrival_point = 4;
             is_indoor = true;
@@ -457,6 +422,8 @@ public:
                 arrival_result = request_planning(starting_point, arrival_point, is_indoor);    
                 std::cout << "arrival_result " << arrival_result << std::endl;
             }
+            // -완-
+
 
             // pickup
             item_index = 4;
@@ -464,6 +431,8 @@ public:
             while(ros::ok() && !delivery_result){
                 delivery_result = pickup(item_index);    
             }
+            // -완-
+
 
             // srv를 request 함수에 넣게되면 계속해서 서비스를 요청하게 됨 -> escape mode를 사용할 수 없게됨
             // 따라서 requeset 하기 전에 모드를 바꾸는게 좋을 것 같음
@@ -471,6 +440,9 @@ public:
             is_indoor = true;
             collision_person = 4;
             request_collision_to_person(collision_person, is_indoor);   // 실내에 있는 4번 사람 충돌하기
+            // -완-
+
+
 
             // teleport 이후에 5번으로 이동
             starting_point = 0;
@@ -482,6 +454,8 @@ public:
                 arrival_result = request_planning(starting_point, arrival_point, is_indoor);    
                 std::cout << "arrival_result " << arrival_result << std::endl;
             }
+            // -완-
+
 
             // 5번 pickup
             item_index = 5;
@@ -508,6 +482,7 @@ public:
                 arrival_result = request_planning(starting_point, arrival_point, is_indoor);    
                 std::cout << "arrival_result " << arrival_result << std::endl;
             }
+            // -완-
 
             // 7번 -> 5번 배달
             starting_point = 7;
@@ -520,6 +495,7 @@ public:
                 arrival_result = request_planning(starting_point, arrival_point, is_indoor);    
                 std::cout << "arrival_result " << arrival_result << std::endl;
             }
+
 
             // 배달
             item_index = 5;
@@ -540,17 +516,22 @@ public:
                 std::cout << "arrival_result " << arrival_result << std::endl;
             }
 
+
             // 배달
             item_index = 4;
             delivery_result = false;
             while(ros::ok() && !delivery_result){
                 delivery_result = delivery(item_index);    
             }
-            // 밖에 있는 5번 사람 충돌하기
+            // -완-
+
+
+            // 밖에 있는 4번 사람 충돌하기
             change_control_mode(2);
             is_indoor = false;
-            collision_person = 5;
-            request_collision_to_person(collision_person, is_indoor);   // 실내에 있는 4번 사람 충돌하기
+            collision_person = 4;
+            request_collision_to_person(collision_person, is_indoor);   // 야외에 있는 4번 사람 충돌하기
+            // -완-
 
 
             // 실내로 이동
@@ -564,9 +545,11 @@ public:
                 arrival_result = request_planning(starting_point, arrival_point, is_indoor);    
                 std::cout << "arrival_result " << arrival_result << std::endl;
             }
+            // -완-
+
 
             // 1번 이동
-            starting_point = 0;
+            starting_point = 7;
             arrival_point = 1;
             is_indoor = true;
             arrival_result = 0;
@@ -585,12 +568,12 @@ public:
 
             // 안에 있는 1번 사람 충돌하기
             change_control_mode(2);
-            is_indoor = false;
+            is_indoor = true;
             collision_person = 1;
-            request_collision_to_person(collision_person, is_indoor);   // 실내에 있는 4번 사람 충돌하기
+            request_collision_to_person(collision_person, is_indoor);   // 실내에 있는 1번 사람 충돌하기
 
             // 2번 이동
-            starting_point = 0;
+            starting_point = 6;
             arrival_point = 2;
             is_indoor = true;
             arrival_result = 0;
@@ -638,12 +621,15 @@ public:
                 std::cout << "arrival_result " << arrival_result << std::endl;
             }
 
+            // stop(0.5);
             // 배달
             item_index = 1;
             delivery_result = false;
+        
             while(ros::ok() && !delivery_result){
-                delivery_result = delivery(item_index);    
+                delivery_result = delivery(item_index);
             }
+
 
             // 배달 1번 -> 2번 이동
             starting_point = 1;
@@ -660,6 +646,7 @@ public:
             // 배달
             item_index = 2;
             delivery_result = false;
+           
             while(ros::ok() && !delivery_result){
                 delivery_result = delivery(item_index);    
             }
@@ -667,7 +654,7 @@ public:
             change_control_mode(2);
             is_indoor = false;
             collision_person = 2;
-            request_collision_to_person(collision_person, is_indoor);   // 실내에 있는 4번 사람 충돌하기
+            request_collision_to_person(collision_person, is_indoor);
             
             // 실내로 이동
             starting_point = 6;
@@ -682,7 +669,7 @@ public:
             }
             
             // 3번 이동
-            starting_point = 0;
+            starting_point = 7;
             arrival_point = 3;
             is_indoor = true;
             arrival_result = 0;
@@ -701,7 +688,7 @@ public:
 
             // 안에 있는 3번 사람 충돌하기
             change_control_mode(2);
-            is_indoor = false;
+            is_indoor = true;
             collision_person = 3;
             request_collision_to_person(collision_person, is_indoor);   // 실내에 있는 4번 사람 충돌하기
             
@@ -733,6 +720,7 @@ public:
             // 배달
             item_index = 3;
             delivery_result = false;
+          
             while(ros::ok() && !delivery_result){
                 delivery_result = delivery(item_index);    
             }
@@ -785,6 +773,7 @@ private:
     ros::Subscriber current_pose_sub_;
     ros::Subscriber dilly_item_status_sub_;
     ros::Publisher waypoint_pub_; 
+    ros::Publisher state_pub_;
 
     ros::ServiceClient delivery_pickup_client_;
     ros::ServiceClient control_mode_client_;

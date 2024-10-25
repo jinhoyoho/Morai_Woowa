@@ -1,6 +1,7 @@
 #include <ros/ros.h>
 #include <ros/package.h>
 #include <std_msgs/Float32.h>
+#include <std_msgs/Int8.h>
 #include <sensor_msgs/PointCloud.h>
 #include <geometry_msgs/Point32.h>
 #include <geometry_msgs/PoseStamped.h>
@@ -34,6 +35,7 @@ public:
 
             obstacle_sub = nh.subscribe("obstacle", 10, &Dwa::obstacle_callback, this);
             pose_sub = nh.subscribe("current_pose", 10, &Dwa::pose_callback, this);
+            mode_sub = nh.subscribe("mode", 10, &Dwa::mode_callback, this);
 
             as.start();
         }
@@ -71,6 +73,11 @@ public:
 
     void obstacle_callback(const sensor_msgs::PointCloud2::ConstPtr& msg){
         pcl::fromROSMsg(*msg, *cloud_ptr);
+    }
+
+    void mode_callback(const std_msgs::Int8::ConstPtr& msg)
+    {
+        mode = msg->data;
     }
 
     void pose_callback(const geometry_msgs::PoseStamped::ConstPtr& msg){
@@ -377,9 +384,14 @@ public:
         progress_pub.publish(progress_msg);
 
         // 99% 이상이거나 90% 이상이고 갑자기 거리가 멀어지면 순간이동 성공으로 판단해 성공 반환
+        // 사람 박치기 모드여야 성공
         if(feedback.feedback.progress_percentage < 0.2 
-            || ( (feedback.feedback.progress_percentage > 0.5) && (path_normal_distance > 100.0) ) ){
+            || ((feedback.feedback.progress_percentage > 0.5) && (path_normal_distance > 300.0) ) ){
+
+            ROS_INFO("DWA SUCCESS!");
+            
             result.result.success = true;
+            stop_flag = true;
 
             // 성공반환할때 progress를 0으로 바꿈
             feedback.feedback.progress_percentage = 0;
@@ -389,11 +401,12 @@ public:
             as.setSucceeded(result.result);
         }
 
-        else if(stop_flag == true){
+        if(stop_flag == true){
             //progress를 0으로 바꿔서 멈추게 함
             feedback.feedback.progress_percentage = 0;
             progress_msg.data = feedback.feedback.progress_percentage;
             progress_pub.publish(progress_msg);
+            stop_flag = false;
         }
     }
 
@@ -406,6 +419,8 @@ private:
     ros::Publisher gpath_pub;
     ros::Publisher progress_pub;
     ros::Subscriber pose_sub;
+    ros::Subscriber mode_sub;
+    int mode;
     
     int num_of_path = 15;
     double predict_time = 3;

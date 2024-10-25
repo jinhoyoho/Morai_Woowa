@@ -51,10 +51,10 @@ bool person_action_node::check_collision_success(){
         return true;
     }
 
-    else{
-        ROS_WARN("teleport fail");
-        return false;
-    }
+    
+    ROS_WARN("teleport fail");
+    return false;
+    
 }
 
 void person_action_node::back_move(float dur_t){
@@ -88,7 +88,35 @@ AStar::Vec2i person_action_node::load_spot(int spot, bool is_indoor){
             person_spot = {-77, 7};
         else if(spot == 5)
             person_spot = {30.75, -42.4};
+        else if(spot == 1)
+        {
+            person_spot = {-42.0, -135.98};
+        }
+        else if(spot == 2)
+        {
+            person_spot = {51.83, -40.71};
+        }
+        else if(spot == 3)
+        {
+            person_spot = {65.34, 45.19};
+        }
 
+    }
+    else
+    {
+        if(spot == 4)
+        {
+            person_spot = {334.92, -119.45};
+        }
+        else if(spot == 2)
+        {
+            person_spot = {263.63, -77.59};
+        }
+        else if(spot == 3)
+        {
+            person_spot = {231.50, -129.55};
+        }
+        
     }
 
     return person_spot;
@@ -213,6 +241,12 @@ void person_action_node::execute(const morai_woowa::Person_Collision_Act2GoalCon
         ctrl_cmd.Target_linear_velocity = lin_vel;
         ctrl_cmd.Target_angular_velocity = ang_vel;
         ctrl_cmd_pub_.publish(ctrl_cmd);
+
+        if (check_collision_success()){
+            result.success = true;
+            stop(1.5);
+            break;
+        }
 
     }
     

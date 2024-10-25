@@ -3,7 +3,7 @@
 #include <limits>
 #include <ros/ros.h>
 
-DynamicPlanning::DynamicPlanning() : nh_("~"), is_robot_stuck_(false), no_movement_duration_(5.0) {
+DynamicPlanning::DynamicPlanning() : nh_("~"), is_robot_stuck_(false), no_movement_duration_(7.0) {
     escape_ctrl_pub_ = nh_.advertise<morai_msgs::SkidSteer6wUGVCtrlCmd>("/escape_ctrl", 10);//escape_ctrl
     scurrent_pose_sub = nh_.subscribe("/current_pose", 10, &DynamicPlanning::waypointCallback, this);
     control_client_ = nh_.serviceClient<morai_woowa::ControlSrv>("/Control_srv");
@@ -20,10 +20,10 @@ void DynamicPlanning::waypointCallback(const geometry_msgs::PoseStamped::ConstPt
 
     // 로봇이 움직이지 않았는지 확인 (위치가 거의 변하지 않았을 경우)
     double distance_moved = hypot(current_position_x - previous_position_x_, current_position_y - previous_position_y_);
-    // 로봇이 멈췄고, 멈춘 시간이 5초 이상일 때 후진 명령 실행
+    // 로봇이 멈췄고, 멈춘 시간이 7초 이상일 때 후진 명령 실행
     if (distance_moved < 0.01) {  // 이동이 거의 없을 때
         if ((ros::Time::now() - last_movement_time_).toSec() > no_movement_duration_ && !is_robot_stuck_) {
-            ROS_WARN("Robot seems to be stuck for 5 seconds. Executing Rear function...");
+            ROS_WARN("Robot seems to be stuck for 7 seconds. Executing Rear function...");
             morai_woowa::ControlSrv control_srv;
             control_srv.request.mode = 3;  // mode 3로 전환 요청
     

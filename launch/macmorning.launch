@@ -4,9 +4,9 @@
     <!-- tracking launch 실행 -->
     <include file="$(find morai_woowa)/launch/tracking.launch"/>
     <!-- collision action node 실행 -->
-    <node pkg="morai_woowa" type="person_action_node2" name="person_action_node" output="screen"></node>
+    <node pkg="morai_woowa" type="person_action_node" name="person_action_node"></node>
     <!-- escape control node 실행 -->
-    <node pkg="morai_woowa" type="escape_control_node" name="escape_control_node" output="screen"></node>
+    <node pkg="morai_woowa" type="escape_control_node" name="escape_control_node"></node>
     <!-- state launch 실행 -->
     <node pkg="morai_woowa" type="state_node" name="state_node" output="screen"></node>
 </launch>
