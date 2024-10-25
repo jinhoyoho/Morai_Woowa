@@ -32,7 +32,7 @@ void DynamicPlanning::waypointCallback(const geometry_msgs::PoseStamped::ConstPt
     // 로봇이 움직이지 않았는지 확인 (위치가 거의 변하지 않았을 경우)
     double distance_moved = hypot(current_position_x - previous_position_x_, current_position_y - previous_position_y_);
     // 로봇이 멈췄고, 멈춘 시간이 7초 이상일 때 후진 명령 실행
-    if (distance_moved < 0.01) {  // 이동이 거의 없을 때
+    if (distance_moved < 0.1) {  // 이동이 거의 없을 때
         if ((ros::Time::now() - last_movement_time_).toSec() > no_movement_duration_ && !is_robot_stuck_) {
             ROS_WARN("Robot seems to be stuck for 7 seconds. Executing Rear function...");
             morai_woowa::ControlSrv control_srv;
