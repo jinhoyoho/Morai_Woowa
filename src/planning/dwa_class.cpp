@@ -235,6 +235,7 @@ public:
     void vote_president_path(){
         auto best_cost = 999999.9;
         auto best_idx = 0;
+        std::string direction_flag = "none" ;
 
 
         //obstacle이 하나도 없을때
@@ -267,20 +268,45 @@ public:
                         if(distance < 1.0){
                             current_cost += 9999;
                         }
+
+                        // 전역경로 가운데에 장애물이 있을 경우에
+                        if(distance < 1.0 && path_idx == 0 && (*cloud_ptr)[k].z < 0.1 && (*cloud_ptr)[k].intensity < 0.1 && direction_flag == "none"){
+                            std::vector<double> obstacle_vector = {(*cloud_ptr)[k].x - (*remain_global_path_ptr)[0][0], (*cloud_ptr)[k].y - (*remain_global_path_ptr)[0][1]};
+                            std::vector<double> path_vector = {(*remain_global_path_ptr).back()[0] - (*remain_global_path_ptr)[0][0], (*remain_global_path_ptr).back()[1] - (*remain_global_path_ptr)[0][1]};
+                            auto direction = obstacle_vector[0] * path_vector[1] - obstacle_vector[1] * path_vector[0];
+
+                            if(direction > 0){
+                                direction_flag = "left";
+                            }
+                            else{
+                                direction_flag = "right";
+                            }
+
+                            std::cout<<"direction_flag: "<<direction_flag<<"\n";
+                        }
                     }
 
                     // path cost
                     auto distance = calculateDistance(current_candidate[current_time_idx], (*remain_global_path_ptr)[current_time_idx]);
-                    current_cost += global_path_cost * std::pow(distance, 1);
+                    current_cost += global_path_cost * std::pow(distance, 3);
                     }
 
+                if(path_idx > num_of_path/2 && direction_flag == "left"){
+                    current_cost += 99999;
+                }
+                else if(path_idx < num_of_path/2 && direction_flag == "right"){
+                    current_cost += 99999;
+                }
 
                 std::cout<<path_idx<<" cost: "<<current_cost<<std::endl;
 
-                if(path_idx == 0 && current_cost < 9999 && path_normal_distance < 1.0){
+                if(path_idx == 0 && current_cost < 9999 && path_normal_distance < 0.3){
                     best_idx = path_idx;
                     best_cost = current_cost;
                     break;
+                }
+                else if(path_idx == 0){
+                    current_cost = 9999999;
                 }
 
                 if(current_cost < best_cost){
@@ -429,7 +455,7 @@ private:
     int mode;
     
     int num_of_path = 15;
-    double predict_time = 3;
+    double predict_time = 3.0;
     double velocity = 1.0;
     double angular_velocity = 0.5;
     double global_path_cost = 0.1;

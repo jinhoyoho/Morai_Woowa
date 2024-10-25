@@ -150,12 +150,12 @@ void LiDAR_pre::roi()
 
     pass.setInputCloud(raw_data_p_);
     pass.setFilterFieldName("x");
-    pass.setFilterLimits(0, 10);  // 앞뒤거리
+    pass.setFilterLimits(-0, 10);  // 앞뒤거리
     pass.filter(*raw_data_p_);
 
     pass.setInputCloud(raw_data_p_);
     pass.setFilterFieldName("y");
-    pass.setFilterLimits(-4.0, 4.0); //좌우거리
+    pass.setFilterLimits(-10.0, 10.0); //좌우거리
     pass.filter(*raw_data_p_);
 
     cloud_data = *raw_data_p_; // 필터링된 데이터를 cloud_data에 저장

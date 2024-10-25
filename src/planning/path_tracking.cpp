@@ -206,7 +206,7 @@ void PurePursuitController::controlLoop() {
         double curvature = calculateCurvature();
 
         // 곡률에 따른 속도 조절
-        double max_speed = 7.2;//7.2; // 최대 속도 (m/s)
+        double max_speed = 3.0;//7.2; // 최대 속도 2 (m/s)
         double min_speed = 1.0; // 최소 속도 (m/s)
         double speed;
 
