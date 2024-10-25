@@ -40,7 +40,7 @@ void make_arrows(ros::Publisher& marker_pub);
 void make_obstacle_msg();
 void removeSmallClusters();
 
-int hz = 60;
+int hz = 10;
 
 int marker_size = 0;
 
@@ -48,8 +48,8 @@ int main(int argc, char **argv){
     ros::init(argc, argv, "obstacle_tracking");
     ros::NodeHandle nh;
     // ros::Subscriber cluster_sub = nh.subscribe("clustered_points", 10, cluster_callback);
-    // ros::Subscriber cluster_sub = nh.subscribe("lidar_utm", 10, cluster_callback);
-    ros::Subscriber person_sub = nh.subscribe("/average_points", 10, person_callback);
+    ros::Subscriber cluster_sub = nh.subscribe("lidar_utm", 10, cluster_callback);
+    // ros::Subscriber person_sub = nh.subscribe("/average_points", 10, person_callback);
     ros::Subscriber pose_sub = nh.subscribe("current_pose", 10, pose_callback);
     
     ros::Publisher marker_array_pub = nh.advertise<visualization_msgs::Marker>("visualization_marker_array", 10);
@@ -144,6 +144,13 @@ void person_callback(const morai_woowa::average_points_array::ConstPtr& msg){
     }
 }
 
+bool isValidPoint(const pcl::PointXYZI& point) {
+    return std::isfinite(point.x) && !std::isnan(point.x) &&
+           std::isfinite(point.y) && !std::isnan(point.y) &&
+           std::isfinite(point.z) && !std::isnan(point.z) &&
+           std::isfinite(point.intensity) && !std::isnan(point.intensity);
+}
+
 void cluster_callback(const sensor_msgs::PointCloud2::ConstPtr& msg){
     if(msg->data.size() != 0){
 
@@ -153,13 +160,17 @@ void cluster_callback(const sensor_msgs::PointCloud2::ConstPtr& msg){
         clusters_ptr->clear();
         //classify
         for(int i=0; i<cloud_ptr->size(); i++){
-            auto cluster_name = cloud_ptr->at(i).intensity;
-            if(cluster_name != -1){
-                if(cluster_name >= clusters_ptr->size()){
-                    clusters_ptr->resize(cluster_name + 1);
+            //inf나 nan이 들어있는지 판단
+            if(isValidPoint(cloud_ptr->at(i))){
+                auto cluster_name = cloud_ptr->at(i).intensity;
+                if(cluster_name != -1){
+                    if(cluster_name >= clusters_ptr->size()){
+                        clusters_ptr->resize(cluster_name + 1);
+                    }
+                    clusters_ptr->at(cluster_name).push_back(cloud_ptr->at(i));
                 }
-                clusters_ptr->at(cluster_name).push_back(cloud_ptr->at(i));
             }
+
         }
         removeSmallClusters();
 

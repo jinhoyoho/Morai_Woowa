@@ -9,4 +9,6 @@
     <node pkg="morai_woowa" type="escape_control_node" name="escape_control_node"></node>
     <!-- state launch 실행 -->
     <node pkg="morai_woowa" type="state_node" name="state_node" output="screen"></node>
+    <!-- rviz 실행 -->
+    <node pkg="rviz" type="rviz" name="rviz1" args="-d $(find morai_woowa)/rviz/dwa.rviz" output="screen"/>
 </launch>

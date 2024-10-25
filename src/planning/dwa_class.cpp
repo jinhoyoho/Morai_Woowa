@@ -69,6 +69,12 @@ public:
 
             rate.sleep();
         }
+
+        // 성공했을 때 progress 0 publish해서 멈추도록
+        std_msgs::Float32 progress_msg;
+        feedback.feedback.progress_percentage = 0;
+        progress_msg.data = feedback.feedback.progress_percentage;
+        progress_pub.publish(progress_msg);
     }
 
     void obstacle_callback(const sensor_msgs::PointCloud2::ConstPtr& msg){

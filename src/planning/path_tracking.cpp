@@ -11,16 +11,23 @@ PurePursuitController::PurePursuitController(ros::NodeHandle& nh) :
     gpath_sub_ = nh.subscribe("/lpath", 10, &PurePursuitController::publishPath, this);  // Waypoint 구독
     current_pose_sub_ = nh.subscribe("/current_pose", 10, &PurePursuitController::getRobotStatus, this);
     odom_sub_ = nh.subscribe("/odom", 10, &PurePursuitController::odomCallback, this);
-    progress_sub_ = nh.subscribe("/progress", 10, &PurePursuitController::progressCallback, this);
+    traffic_sub_ = nh.subscribe("/traffic", 10, &PurePursuitController::fraffic_callback, this);
     // Publisher
+
+    gpath_sub_ = nh.subscribe("/lpath", 10, &PurePursuitController::publishPath, this);  
     ctrl_cmd_pub_ = nh.advertise<morai_msgs::SkidSteer6wUGVCtrlCmd>("/path_tracking_ctrl", 10);
     turn_180_flag_ = false;
+    traffic_go_ = true;
     
     turn_cnt = 0;
 }
 
 void PurePursuitController::progressCallback(const std_msgs::Float32::ConstPtr& msg) {
     progress = msg->data;
+}
+
+void PurePursuitController::fraffic_callback(const std_msgs::Bool::ConstPtr& msg) {
+    traffic_go_ = msg->data;
 }
 
 void PurePursuitController::odomCallback(const nav_msgs::Odometry::ConstPtr& msg) {
@@ -109,7 +116,7 @@ void PurePursuitController::publishPath(const nav_msgs::Path::ConstPtr& msg) {
     }
 
     // if (rotated_point.x < 0){ 
-    if ( fabs(mid_angle) > M_PI*3/4){ 
+    if ( fabs(mid_angle) > M_PI*1/2){ 
         turn_180_flag_ = true;
         ROS_INFO("Turn!!!!!!!!!!!!!!!!!!!!!!!!!!!");
         turn_cnt ++;
@@ -188,9 +195,18 @@ double PurePursuitController::calculateCurvature() {
 void PurePursuitController::controlLoop() {
     ros::Rate rate(10);
     while (ros::ok()) {
+        
         ros::spinOnce();  // 콜백 함수 호출
 
-        if(turn_180_flag_ && turn_cnt > 3)
+        if(turn_180_flag_ && turn_cnt >= 1){
+            morai_msgs::SkidSteer6wUGVCtrlCmd ctrl_cmd;
+            ctrl_cmd.cmd_type = 3;
+            ctrl_cmd.Target_linear_velocity = 0;
+            ctrl_cmd.Target_angular_velocity = 0;
+            ctrl_cmd_pub_.publish(ctrl_cmd);
+        }
+
+        if(turn_180_flag_ && turn_cnt > 0)
             Turn_180();
 
         double angle = steering_angle();
