@@ -20,6 +20,12 @@ PurePursuitController::PurePursuitController(ros::NodeHandle& nh) :
     traffic_go_ = true;
     
     turn_cnt = 0;
+
+    mid_angle = 0.0;
+
+    distance_from_traffic = 10000;
+
+    traffic_stop_flag = true;
 }
 
 void PurePursuitController::progressCallback(const std_msgs::Float32::ConstPtr& msg) {
@@ -80,6 +86,10 @@ void PurePursuitController::getRobotStatus(const geometry_msgs::PoseStamped::Con
     // lfd를 동적으로 조정 (기본 lfd 2.0 + 속도 계수 0.5 적용)
     lfd = 2.0 + 0.5 * current_linear_vel;
     //ROS_INFO("Dynamic LFD: %.2f, Current Velocity: %.2f, Angular Velocity: %.2f", lfd, current_linear_vel, current_angular_vel);
+    
+    distance_from_traffic = std::sqrt((current_position.x - 395.27)*(current_position.x - 395.27) 
+                                  + (current_position.y + 111.38)*(current_position.y + 111.38));
+    //ROS_INFO("Distance: %f", distance);
 }
 
 void PurePursuitController::publishPath(const nav_msgs::Path::ConstPtr& msg) {
@@ -106,7 +116,7 @@ void PurePursuitController::publishPath(const nav_msgs::Path::ConstPtr& msg) {
     rotated_point.x = cos(vehicle_yaw) * dx + sin(vehicle_yaw) * dy;
     rotated_point.y = sin(vehicle_yaw) * dx - cos(vehicle_yaw) * dy;
 
-    float mid_angle = atan2(rotated_point.y, rotated_point.x);
+    mid_angle = atan2(rotated_point.y, rotated_point.x);
 
     // // yaw_diff를 -π ~ π 범위로 맞춤
     if (mid_angle > M_PI) {
@@ -198,7 +208,22 @@ void PurePursuitController::controlLoop() {
         
         ros::spinOnce();  // 콜백 함수 호출
 
+        if(distance_from_traffic < 2 && traffic_stop_flag){
+            auto t = ros::Time::now();
+            while(ros::Time::now() - t < ros::Duration(2)){
+                ROS_INFO("back stop!!!!!!!!!!!!!!!!!!!!!!!!!!!");
+                morai_msgs::SkidSteer6wUGVCtrlCmd ctrl_cmd;
+                ctrl_cmd.cmd_type = 3;
+                ctrl_cmd.Target_linear_velocity = 0;
+                ctrl_cmd.Target_angular_velocity = 0.1;
+                ctrl_cmd_pub_.publish(ctrl_cmd);
+            }
+            traffic_stop_flag = false;
+        }
+
         if(!traffic_go_){
+            ROS_INFO("stop!!!!!!!!!!!!!!!!!!!!!!!!!!!");
+
             morai_msgs::SkidSteer6wUGVCtrlCmd ctrl_cmd;
             ctrl_cmd.cmd_type = 3;
             ctrl_cmd.Target_linear_velocity = 0;
@@ -288,34 +313,49 @@ void PurePursuitController::Turn_180() {
     }
 
     while (ros::ok()) {
+
         ros::spinOnce();  // 콜백 함수 호출
         
-        double now_yaw = vehicle_yaw;
+        // double now_yaw = vehicle_yaw;
 
-        if (now_yaw > 2 * M_PI) {
-            now_yaw -= 2 * M_PI;  // -π ~ π 범위로 맞춤
-        }
-
-        // 현재 vehicle_yaw와 target_yaw 간의 차이 계산
-        double yaw_diff = target_yaw - vehicle_yaw;
-
-        // // yaw_diff를 -π ~ π 범위로 맞춤
-        // if (yaw_diff > M_PI) {
-        //     yaw_diff -= 2 * M_PI;
-        // } else if (yaw_diff < -M_PI) {
-        //     yaw_diff += 2 * M_PI;
+        // if (now_yaw > 2 * M_PI) {
+        //     now_yaw -= 2 * M_PI;  // -π ~ π 범위로 맞춤
         // }
 
-        yaw_diff = (yaw_diff > M_PI)? yaw_diff - 2*M_PI : yaw_diff;
-        yaw_diff = (yaw_diff < -M_PI)? yaw_diff + 2*M_PI : yaw_diff;
+        // double yaw_diff = target_yaw - vehicle_yaw;
 
-        // std::cout << yaw_diff << " : yaw_diff" << std::endl; 
+        // yaw_diff = (yaw_diff > M_PI)? yaw_diff - 2*M_PI : yaw_diff;
+        // yaw_diff = (yaw_diff < -M_PI)? yaw_diff + 2*M_PI : yaw_diff;
+
+        // // std::cout << yaw_diff << " : yaw_diff" << std::endl; 
+
+        // float lin_vel = 0.0;
+        // float ang_vel = 0.5;
+
+        // if (yaw_diff > 0)
+        //     ang_vel = -0.5;
+        // else
+        //     ang_vel = 0.5;
+
+        // // 각속도가 충분히 작으면 루프를 종료 (회전 완료)
+        // if (fabs(yaw_diff) < 0.6) {  // 각도 차이가 0.01 rad 이하일 경우 완료
+        //     break;
+        // }
 
         float lin_vel = 0.0;
         float ang_vel = 0.5;
 
+        mid_angle = (mid_angle > M_PI)? mid_angle - 2*M_PI : mid_angle;
+        mid_angle = (mid_angle < -M_PI)? mid_angle + 2*M_PI : mid_angle;
+
+
+        if (mid_angle > 0)
+            ang_vel = 0.5;
+        else
+            ang_vel = -0.5;
+
         // 각속도가 충분히 작으면 루프를 종료 (회전 완료)
-        if (fabs(yaw_diff) < 0.3) {  // 각도 차이가 0.01 rad 이하일 경우 완료
+        if (fabs(mid_angle) < 0.3) {  // 각도 차이가 0.01 rad 이하일 경우 완료
             break;
         }
 

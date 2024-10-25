@@ -30,6 +30,8 @@ class Traffic
         int count;  // 이동 평균 필터 개수
         float current_x;
         float current_y;
+        bool first_false_flag;
+        ros::Time first_false_time;
 
     public:
         Traffic(ros::NodeHandle& nh); // 생성자

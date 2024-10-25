@@ -56,12 +56,17 @@ private:
     ros::Time previous_time;
     double previous_heading;
     double progress;
+    double mid_angle;
 
     bool traffic_go_;
 
     int turn_cnt;
 
     bool turn_180_flag_;
+
+    bool traffic_stop_flag;
+
+    float distance_from_traffic;
 };
 
 #endif 

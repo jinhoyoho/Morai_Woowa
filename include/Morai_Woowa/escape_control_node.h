@@ -7,6 +7,7 @@
 #include <geometry_msgs/PoseStamped.h>
 #include <morai_woowa/ControlSrv.h>
 #include <std_msgs/Bool.h>
+#include <vector>
 
 class DynamicPlanning {
 public:
@@ -32,6 +33,11 @@ private:
 
     bool traffic_go_;
 
+    std::vector<std::vector<double>> pose_que;
+
+    int hz = 30;
+    int sec = 10;
+    double dis = 1.0;
 };
 
 #endif 

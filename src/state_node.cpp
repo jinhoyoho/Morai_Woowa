@@ -609,7 +609,7 @@ public:
             }
 
 
-            // 0번 -> 1번 배달
+            // 7번 -> 1번 배달
             starting_point = 7;
             arrival_point = 1;
             is_indoor = false; // 야외 
@@ -631,7 +631,7 @@ public:
             }
 
 
-            // 배달 1번 -> 2번 이동
+            // 배달 1(6)번 -> 2번 이동
             starting_point = 6;
             arrival_point = 2;
             is_indoor = false; // 야외 

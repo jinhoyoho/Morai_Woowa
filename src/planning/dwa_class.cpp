@@ -112,6 +112,15 @@ public:
     void load_path(std::string path_name, bool is_reverse){
         global_path_ptr->clear();
 
+        gpath_name = path_name;
+
+        // if(path_name == "outdoor_7_1.csv" || path_name == "outdoor_6_2.csv"){
+        //     signal_path = true;
+        // }
+        // else{
+        //     signal_path = false;
+        // }
+
         auto file_name = ros::package::getPath("morai_woowa") + "/path/" + path_name;
         // auto file_name = "/home/user/catkin_ws/src/Morai_Woowa/path/" + path_name;
 
@@ -194,6 +203,10 @@ public:
         
         auto progress = calculateDistance({(*global_path_ptr).back()[0], (*global_path_ptr).back()[1], 0.0}, {(*pose_ptr)[0] , (*pose_ptr)[1] , 0.0});
         
+        // std::cout<<"gpp"<<(*global_path_ptr).back()[0]<<"\n";
+        // std::cout<<"gpp"<<(*global_path_ptr).back()[1]<<"\n";
+        // std::cout<<"pose"<<(*pose_ptr)[0]<<"\n";
+        // std::cout<<"pose"<<(*pose_ptr)[1]<<"\n";
         feedback.feedback.progress_percentage = progress;
 
         cout<<"progress"<<feedback.feedback.progress_percentage<<endl;
@@ -237,6 +250,15 @@ public:
         auto best_idx = 0;
         std::string direction_flag = "none" ;
 
+        //신호등에 있을땐 모든 장애물을 없앤다. 봉에 박지 않게 하기 위해서
+        if(gpath_name == "outdoor_7_1.csv" && (feedback.feedback.progress_percentage < 35 || feedback.feedback.progress_percentage > 9)){
+            cloud_ptr->clear();
+        }
+
+        else if (gpath_name == "outdoor_6_2.csv" && (feedback.feedback.progress_percentage < 64 || feedback.feedback.progress_percentage > 36)
+                || (feedback.feedback.progress_percentage < 140 || feedback.feedback.progress_percentage > 132) ){
+            cloud_ptr->clear();
+        }
 
         //obstacle이 하나도 없을때
         if(!cloud_ptr){
@@ -461,6 +483,8 @@ private:
     double global_path_cost = 0.1;
     double path_normal_distance = 0.0; //path와 현재 위치 수직거리
     bool stop_flag = false;
+    bool signal_path = false;
+    std::string gpath_name;
 
     actionlib::SimpleActionServer<morai_woowa::Planning_Tracking_ActAction> as;
     morai_woowa::Planning_Tracking_ActActionResult result;
@@ -478,7 +502,7 @@ private:
 };
 
 int main(int argc, char** argv){
-    ros::init(argc, argv, "dwa");
+    ros::init(argc, argv, "dwa_node");
 
     Dwa Dwa;
 

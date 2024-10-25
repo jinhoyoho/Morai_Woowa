@@ -10,6 +10,8 @@ Traffic::Traffic(ros::NodeHandle& nh)
     image_sub = nh.subscribe("traffic_image", 1, &Traffic::image_callBack, this);
     pose_sub = nh.subscribe("current_pose", 10, &Traffic::pose_callback, this);
     flag_pub = nh.advertise<std_msgs::Bool>("traffic", 10);
+    first_false_flag = true;
+    first_false_time = ros::Time::now();
     std::cout << "Traffic on" << "\n";
 }
 
@@ -17,6 +19,13 @@ void Traffic::pose_callback(const geometry_msgs::PoseStamped::ConstPtr& msg){
     // Extract position
     current_x = msg->pose.position.x;
     current_y = msg->pose.position.y;
+
+    if(ros::Time::now() - first_false_time > ros::Duration(25) )
+        flag = true;
+    
+    std_msgs::Bool flag_msg;
+    flag_msg.data = flag;
+    flag_pub.publish(flag_msg);
 }
 
 void Traffic::image_callBack(const sensor_msgs::ImageConstPtr& msg)
@@ -27,7 +36,7 @@ void Traffic::image_callBack(const sensor_msgs::ImageConstPtr& msg)
                                   + (current_y + 111.38)*(current_y + 111.38));
         ROS_INFO("Distance: %f", distance);
 
-        if(distance < 1)    // 1 meter일때
+        if(distance < 2)    // 1 meter일때
         {
             ROS_INFO("Traffic ON!");
             if(msg)
@@ -42,9 +51,6 @@ void Traffic::image_callBack(const sensor_msgs::ImageConstPtr& msg)
         {
             flag = true;    // 거리가 멀면 무조~~~건 true
         }
-        std_msgs::Bool flag_msg;
-        flag_msg.data = flag;
-        flag_pub.publish(flag_msg);
     }
     catch (cv_bridge::Exception& e)
     {
@@ -117,10 +123,19 @@ void Traffic::process_image()
             if(sum <= 0.5) // 5개미만
             {
                 ROS_INFO("STOP!");
+                if(flag == true)
+                    first_false_time = ros::Time::now();
+
                 flag = false;
+                if(first_false_flag){
+                    first_false_flag = false;
+                }
             }
             else
             {
+                // if(flag == true)
+                //     first_false_time = ros::Duration(10000000000);
+
                 ROS_INFO("GO!");
                 flag = true;
             }
