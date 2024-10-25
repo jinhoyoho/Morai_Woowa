@@ -109,7 +109,7 @@ void PurePursuitController::publishPath(const nav_msgs::Path::ConstPtr& msg) {
     }
 
     // if (rotated_point.x < 0){ 
-    if ( fabs(mid_angle) > M_PI*3/4){ 
+    if ( fabs(mid_angle) > M_PI*1/2){ 
         turn_180_flag_ = true;
         ROS_INFO("Turn!!!!!!!!!!!!!!!!!!!!!!!!!!!");
         turn_cnt ++;
@@ -188,9 +188,18 @@ double PurePursuitController::calculateCurvature() {
 void PurePursuitController::controlLoop() {
     ros::Rate rate(10);
     while (ros::ok()) {
+        
         ros::spinOnce();  // 콜백 함수 호출
 
-        if(turn_180_flag_ && turn_cnt > 3)
+        if(turn_180_flag_ && turn_cnt >= 1){
+            morai_msgs::SkidSteer6wUGVCtrlCmd ctrl_cmd;
+            ctrl_cmd.cmd_type = 3;
+            ctrl_cmd.Target_linear_velocity = 0;
+            ctrl_cmd.Target_angular_velocity = 0;
+            ctrl_cmd_pub_.publish(ctrl_cmd);
+        }
+
+        if(turn_180_flag_ && turn_cnt > 0)
             Turn_180();
 
         double angle = steering_angle();

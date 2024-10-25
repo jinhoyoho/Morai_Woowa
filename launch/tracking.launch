@@ -3,5 +3,5 @@
     <node pkg="morai_woowa" type="control_node" name="control_node"></node>
     <node pkg="morai_woowa" type="dwa_class" name="dwa_node"></node>
     <node pkg="morai_woowa" type="path_tracking" name="path_tracking_node" output="screen"></node>
-    <node pkg="morai_woowa" type="obstacle_tracking" name="obstacle_node" output="screen"></node>
+    <!-- <node pkg="morai_woowa" type="obstacle_tracking" name="obstacle_node" output="screen"></node> -->
 </launch>
