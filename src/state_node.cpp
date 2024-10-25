@@ -112,6 +112,8 @@ public:
 
         // std::cout << deli_srv.response.response.result <<"\n";
 
+        std::cout << "PICK UP\n";
+
         return deli_srv.response.response.result; // 결과
     } 
 
@@ -520,6 +522,7 @@ public:
                 arrival_result = request_planning(starting_point, arrival_point, is_indoor);    
                 std::cout << "arrival_result " << arrival_result << std::endl;
             }
+
 
             // 배달
             item_index = 5;
