@@ -11,16 +11,23 @@ PurePursuitController::PurePursuitController(ros::NodeHandle& nh) :
     gpath_sub_ = nh.subscribe("/lpath", 10, &PurePursuitController::publishPath, this);  // Waypoint 구독
     current_pose_sub_ = nh.subscribe("/current_pose", 10, &PurePursuitController::getRobotStatus, this);
     odom_sub_ = nh.subscribe("/odom", 10, &PurePursuitController::odomCallback, this);
-    progress_sub_ = nh.subscribe("/progress", 10, &PurePursuitController::progressCallback, this);
+    traffic_sub_ = nh.subscribe("/traffic", 10, &PurePursuitController::fraffic_callback, this);
     // Publisher
+
+    gpath_sub_ = nh.subscribe("/lpath", 10, &PurePursuitController::publishPath, this);  
     ctrl_cmd_pub_ = nh.advertise<morai_msgs::SkidSteer6wUGVCtrlCmd>("/path_tracking_ctrl", 10);
     turn_180_flag_ = false;
+    traffic_go_ = true;
     
     turn_cnt = 0;
 }
 
 void PurePursuitController::progressCallback(const std_msgs::Float32::ConstPtr& msg) {
     progress = msg->data;
+}
+
+void PurePursuitController::fraffic_callback(const std_msgs::Bool::ConstPtr& msg) {
+    traffic_go_ = msg->data;
 }
 
 void PurePursuitController::odomCallback(const nav_msgs::Odometry::ConstPtr& msg) {
