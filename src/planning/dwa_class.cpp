@@ -442,7 +442,7 @@ public:
         // 99% 이상이거나 90% 이상이고 갑자기 거리가 멀어지면 순간이동 성공으로 판단해 성공 반환
         // 사람 박치기 모드여야 성공
         if(feedback.feedback.progress_percentage < 0.2 
-            || ((feedback.feedback.progress_percentage > 0.5) && (path_normal_distance > 300.0) ) ){
+            || ((feedback.feedback.progress_percentage > 0.5) && (path_normal_distance > 300.0))){
 
             ROS_INFO("DWA SUCCESS!");
             
