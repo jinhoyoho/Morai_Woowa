@@ -251,14 +251,16 @@ public:
         std::string direction_flag = "none" ;
 
         //신호등에 있을땐 모든 장애물을 없앤다. 봉에 박지 않게 하기 위해서
-        if(gpath_name == "outdoor_7_1.csv" && (feedback.feedback.progress_percentage < 35 || feedback.feedback.progress_percentage > 9)){
+        if(gpath_name == "outdoor_7_1.csv" && (feedback.feedback.progress_percentage < 35 && feedback.feedback.progress_percentage > 9)){
             cloud_ptr->clear();
         }
 
-        else if (gpath_name == "outdoor_6_2.csv" && (feedback.feedback.progress_percentage < 64 || feedback.feedback.progress_percentage > 36)
-                || (feedback.feedback.progress_percentage < 140 || feedback.feedback.progress_percentage > 132) ){
+        else if (gpath_name == "outdoor_6_2.csv" && ((feedback.feedback.progress_percentage < 64 || feedback.feedback.progress_percentage > 36)
+                || (feedback.feedback.progress_percentage < 140 && feedback.feedback.progress_percentage > 132)) ){
             cloud_ptr->clear();
         }
+
+        std::cout<<"cp"<<cloud_ptr->size()<<"\n";
 
         //obstacle이 하나도 없을때
         if(!cloud_ptr){
