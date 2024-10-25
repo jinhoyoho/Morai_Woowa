@@ -3,5 +3,5 @@
     <include file="$(find velodyne_pointcloud)/launch/VLP16_points.launch"/>
     <node pkg="morai_woowa" type="location.py" name="location_node"></node>
     <node pkg="morai_woowa" type="camera3.py" name="YOLO_node"></node>
-    <node pkg="morai_woowa" type="sensor_main" name="sensor_node"></node>
+    <node pkg="morai_woowa" type="sensor_main" name="sensor_node" output="screen"></node>
 </launch>

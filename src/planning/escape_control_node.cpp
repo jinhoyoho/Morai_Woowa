@@ -7,14 +7,25 @@ DynamicPlanning::DynamicPlanning() : nh_("~"), is_robot_stuck_(false), no_moveme
     escape_ctrl_pub_ = nh_.advertise<morai_msgs::SkidSteer6wUGVCtrlCmd>("/escape_ctrl", 10);//escape_ctrl
     scurrent_pose_sub = nh_.subscribe("/current_pose", 10, &DynamicPlanning::waypointCallback, this);
     control_client_ = nh_.serviceClient<morai_woowa::ControlSrv>("/Control_srv");
-    
+    traffic_sub_ = nh_.subscribe("/traffic", 10, &DynamicPlanning::traffic_callback, this);
+
+    traffic_go_ = true;
+
     // 이전 위치 초기화
     previous_position_x_ = std::numeric_limits<double>::max();
     previous_position_y_ = std::numeric_limits<double>::max();
     last_movement_time_ = ros::Time::now();
 }
 
+void DynamicPlanning::traffic_callback(const std_msgs::Bool::ConstPtr& msg) {
+    traffic_go_ = msg->data;
+}
+
 void DynamicPlanning::waypointCallback(const geometry_msgs::PoseStamped::ConstPtr& msg) {
+
+    if(!traffic_go_)
+        return;
+    
     double current_position_x = msg->pose.position.x;
     double current_position_y = msg->pose.position.y;
 

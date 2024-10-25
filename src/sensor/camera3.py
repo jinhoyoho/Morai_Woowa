@@ -109,19 +109,20 @@ class IMGParser:
                     array_msg.image = self.br.cv2_to_imgmsg(image_copy)
 
                     if flag == 1:
-                        # 배열과 이미지 보내기
-                        image = results[0].plot()
-                        cv2.imshow("Image window1", image)
-                        if cv2.waitKey(1) == ord('q'):
-                            break
+                        # # 배열과 이미지 보내기
+                        # image = results[0].plot()
+                        # cv2.imshow("Image window1", image)
+                        # if cv2.waitKey(1) == ord('q'):
+                        #     break
 
                         self.obj_pub1.publish(array_msg)
+                        
                     elif flag == 2:
-                        # 배열과 이미지 보내기
-                        image = results[0].plot()
-                        cv2.imshow("Image window2", image)
-                        if cv2.waitKey(1) == ord('q'):
-                            break
+                        # # 배열과 이미지 보내기
+                        # image = results[0].plot()
+                        # cv2.imshow("Image window2", image)
+                        # if cv2.waitKey(1) == ord('q'):
+                        #     break
 
                         self.obj_pub2.publish(array_msg)
 
