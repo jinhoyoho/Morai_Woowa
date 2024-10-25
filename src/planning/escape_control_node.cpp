@@ -3,7 +3,7 @@
 #include <limits>
 #include <ros/ros.h>
 
-DynamicPlanning::DynamicPlanning() : nh_("~"), is_robot_stuck_(false), no_movement_duration_(7.0) {
+DynamicPlanning::DynamicPlanning() : nh_("~"), is_robot_stuck_(false), no_movement_duration_(15.0) {
     escape_ctrl_pub_ = nh_.advertise<morai_msgs::SkidSteer6wUGVCtrlCmd>("/escape_ctrl", 10);//escape_ctrl
     scurrent_pose_sub = nh_.subscribe("/current_pose", 10, &DynamicPlanning::waypointCallback, this);
     control_client_ = nh_.serviceClient<morai_woowa::ControlSrv>("/Control_srv");

@@ -505,7 +505,7 @@ public:
             }
 
             // 배달 5번 -> 4번 이동
-            starting_point = 5;
+            starting_point = 7;
             arrival_point = 4;
             is_indoor = false; // 야외 
             arrival_result = 0;
@@ -632,7 +632,7 @@ public:
 
 
             // 배달 1번 -> 2번 이동
-            starting_point = 1;
+            starting_point = 6;
             arrival_point = 2;
             is_indoor = false; // 야외 
             arrival_result = 0;
