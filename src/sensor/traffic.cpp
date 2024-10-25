@@ -1,69 +1,56 @@
 #include "Morai_Woowa/traffic.h"
 
+// 빨간불일때 false, 나머진 true
+// 395.27, -111.38
+
 Traffic::Traffic(ros::NodeHandle& nh)
 {
-    flag = false; // flag false로 생성
-    redFlag = false;    // 빨간 신호등을 보았는가요?
-    crosswalk = false; // request를 받았나요?
+    flag = true; // flag false로 생성
     count = 0;
     image_sub = nh.subscribe("traffic_image", 1, &Traffic::image_callBack, this);
-    traffic_server = nh.advertiseService("traffic_srv", &Traffic::go_crosswalk, this);
+    pose_sub = nh.subscribe("current_pose", 10, &Traffic::pose_callback, this);
+    flag_pub = nh.advertise<std_msgs::Bool>("traffic", 10);
     std::cout << "Traffic on" << "\n";
+}
+
+void Traffic::pose_callback(const geometry_msgs::PoseStamped::ConstPtr& msg){
+    // Extract position
+    current_x = msg->pose.position.x;
+    current_y = msg->pose.position.y;
 }
 
 void Traffic::image_callBack(const sensor_msgs::ImageConstPtr& msg)
 {
     try
     {
-        if(msg)
+        float distance = std::sqrt((current_x - 395.27)*(current_x - 395.27) 
+                                  + (current_y + 111.38)*(current_y + 111.38));
+        ROS_INFO("Distance: %f", distance);
+
+        if(distance < 1)    // 1 meter일때
         {
-            frame = cv::Mat(msg->height, msg->width, CV_8UC3, const_cast<unsigned char*>(msg->data.data()), msg->step);
-            cv::imshow("traffic image", frame);
-            if (cv::waitKey(10) == 27) exit(1);  // esc키로 종료
-            this->process_image();
+            ROS_INFO("Traffic ON!");
+            if(msg)
+            {
+                frame = cv::Mat(msg->height, msg->width, CV_8UC3, const_cast<unsigned char*>(msg->data.data()), msg->step);
+                cv::imshow("traffic image", frame);
+                if (cv::waitKey(10) == 27) exit(1);  // esc키로 종료
+                this->process_image();
+            }
         }
+        else
+        {
+            flag = true;    // 거리가 멀면 무조~~~건 true
+        }
+        std_msgs::Bool flag_msg;
+        flag_msg.data = flag;
+        flag_pub.publish(flag_msg);
     }
     catch (cv_bridge::Exception& e)
     {
         ROS_ERROR("Could not convert image! %s", e.what());
         ROS_ERROR("Received image encoding: %s", msg->encoding.c_str());
     }
-}
-
-
-bool Traffic::go_crosswalk(morai_woowa::traffic_srv::Request &req, morai_woowa::traffic_srv::Response &res)
-{
-    crosswalk = req.CrossWalk;  // request를 받음
-    
-    ROS_INFO("Traffic request: %d(1 is True, 0 is False)", crosswalk);
-
-    ros::Time traffic_time = ros::Time::now(); // 40초: 빨간불부터 초록불까지 한 cycle
-    ros::Duration cycle_duration(40.0); // 40초
-
-    while(crosswalk)
-    {
-        if(flag)
-        {
-            break;
-        }
-
-        ros::Time current_time = ros::Time::now(); // 현재 시간
-
-        // 경과 시간 계산
-        ros::Duration elapsed_time = current_time - traffic_time;
-
-        // 40초가 지났는지 확인
-        if (elapsed_time >= cycle_duration) {
-            ROS_INFO("Finish 40seconds");
-            break;  // 탈출!
-        }
-
-        ros::spinOnce();    // 콜백 처리
-        ros::Duration(0.1).sleep(); // CPU 사용을 줄이기 위해 잠시 대기
-    }
-
-    res.Go = true;  // 무조건 true 값 전달
-    return res.Go;
 }
 
 void Traffic::process_image()
@@ -126,29 +113,20 @@ void Traffic::process_image()
             mvf.erase(mvf.begin());  // 맨 앞 요소 삭제
             count--;
 
-
-            if(sum >= 0.5) // 5개만 넘어도 출발
+            // 빨간불이면 false
+            if(sum <= 0.5) // 5개미만
             {
-                // 빨간 신호등을 봐야 출발
-                if(redFlag && crosswalk)
-                {
-                    ROS_INFO("GO!");
-                    
-                    flag = true;        // 출발 플래그 publish 해줘야 함
-                    redFlag = false;    // 다시 빨간 신호등을 봐야 출발
-                    crosswalk = false;
-
-                    mvf.clear();    // 모든 벡터 지우기
-                    count = 0;      // 개수는 0
-                }
+                ROS_INFO("STOP!");
+                flag = false;
             }
             else
             {
-                redFlag = true;
+                ROS_INFO("GO!");
+                flag = true;
             }
         }
-
     }
+
     catch (cv_bridge::Exception& e)
     {
         ROS_ERROR("Could not crop image! %s", e.what());
