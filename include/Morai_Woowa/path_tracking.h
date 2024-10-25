@@ -3,6 +3,8 @@
 
 #include <ros/ros.h>
 #include <std_msgs/Float32.h>
+#include <std_msgs/Bool.h>
+
 #include <nav_msgs/Path.h>
 #include <geometry_msgs/PoseStamped.h>
 #include "Morai_Woowa/way_point.h"

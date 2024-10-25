@@ -198,6 +198,15 @@ void PurePursuitController::controlLoop() {
         
         ros::spinOnce();  // 콜백 함수 호출
 
+        if(!traffic_go_){
+            morai_msgs::SkidSteer6wUGVCtrlCmd ctrl_cmd;
+            ctrl_cmd.cmd_type = 3;
+            ctrl_cmd.Target_linear_velocity = 0;
+            ctrl_cmd.Target_angular_velocity = 0;
+            ctrl_cmd_pub_.publish(ctrl_cmd);
+            continue;
+        }
+
         if(turn_180_flag_ && turn_cnt >= 1){
             morai_msgs::SkidSteer6wUGVCtrlCmd ctrl_cmd;
             ctrl_cmd.cmd_type = 3;
