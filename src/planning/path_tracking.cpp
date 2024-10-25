@@ -87,7 +87,7 @@ void PurePursuitController::getRobotStatus(const geometry_msgs::PoseStamped::Con
     lfd = 2.0 + 0.5 * current_linear_vel;
     //ROS_INFO("Dynamic LFD: %.2f, Current Velocity: %.2f, Angular Velocity: %.2f", lfd, current_linear_vel, current_angular_vel);
     
-    distance_from_traffic = std::sqrt((current_position.x - 395.27)*(current_position.x - 395.27) 
+    distance_from_traffic = std::sqrt((current_position.x - 395.31)*(current_position.x - 395.27) 
                                   + (current_position.y + 111.38)*(current_position.y + 111.38));
     //ROS_INFO("Distance: %f", distance);
 }
