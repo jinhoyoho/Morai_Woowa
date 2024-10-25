@@ -546,11 +546,11 @@ public:
             while(ros::ok() && !delivery_result){
                 delivery_result = delivery(item_index);    
             }
-            // 밖에 있는 5번 사람 충돌하기
+            // 밖에 있는 4번 사람 충돌하기
             change_control_mode(2);
             is_indoor = false;
-            collision_person = 5;
-            request_collision_to_person(collision_person, is_indoor);   // 실내에 있는 4번 사람 충돌하기
+            collision_person = 4;
+            request_collision_to_person(collision_person, is_indoor);   // 야외에 있는 4번 사람 충돌하기
 
 
             // 실내로 이동
@@ -566,7 +566,7 @@ public:
             }
 
             // 1번 이동
-            starting_point = 0;
+            starting_point = 7;
             arrival_point = 1;
             is_indoor = true;
             arrival_result = 0;
@@ -585,12 +585,12 @@ public:
 
             // 안에 있는 1번 사람 충돌하기
             change_control_mode(2);
-            is_indoor = false;
+            is_indoor = true;
             collision_person = 1;
-            request_collision_to_person(collision_person, is_indoor);   // 실내에 있는 4번 사람 충돌하기
+            request_collision_to_person(collision_person, is_indoor);   // 실내에 있는 1번 사람 충돌하기
 
             // 2번 이동
-            starting_point = 0;
+            starting_point = 7;
             arrival_point = 2;
             is_indoor = true;
             arrival_result = 0;
@@ -667,7 +667,7 @@ public:
             change_control_mode(2);
             is_indoor = false;
             collision_person = 2;
-            request_collision_to_person(collision_person, is_indoor);   // 실내에 있는 4번 사람 충돌하기
+            request_collision_to_person(collision_person, is_indoor);
             
             // 실내로 이동
             starting_point = 6;
@@ -682,7 +682,7 @@ public:
             }
             
             // 3번 이동
-            starting_point = 0;
+            starting_point = 7;
             arrival_point = 3;
             is_indoor = true;
             arrival_result = 0;
@@ -701,7 +701,7 @@ public:
 
             // 안에 있는 3번 사람 충돌하기
             change_control_mode(2);
-            is_indoor = false;
+            is_indoor = true;
             collision_person = 3;
             request_collision_to_person(collision_person, is_indoor);   // 실내에 있는 4번 사람 충돌하기
             

@@ -208,7 +208,7 @@ void person_action_node::execute(const morai_woowa::Person_Collision_Act2GoalCon
 
         if (check_collision_success()){
             result.success = true;
-            stop(0.5)
+            stop(0.5);
             break;
         }
 
